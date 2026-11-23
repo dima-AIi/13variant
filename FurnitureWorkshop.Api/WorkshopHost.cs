@@ -1,5 +1,8 @@
 using System.Security.Cryptography;
 using System.Security.Claims;
+using System.Security.Cryptography.X509Certificates;
+using System.Net;
+using System.Text;
 using System.Threading.RateLimiting;
 using FurnitureWorkshop.Core;
 using FurnitureWorkshop.Data;
@@ -16,7 +19,7 @@ namespace FurnitureWorkshop.Api;
 
 public static class WorkshopHost
 {
-    public static WebApplication Build(string[] args, bool desktop = false)
+    public static WebApplication Build(string[] args, X509Certificate2? desktopCertificate = null)
     {
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
@@ -24,14 +27,28 @@ public static class WorkshopHost
             ApplicationName = typeof(WorkshopHost).Assembly.GetName().Name
         });
 
-        if (desktop)
-            builder.WebHost.UseUrls("http://127.0.0.1:0");
-        else if (string.IsNullOrWhiteSpace(builder.Configuration["urls"]))
-            builder.WebHost.UseUrls("http://127.0.0.1:5130");
+        if (desktopCertificate is not null)
+            builder.WebHost.ConfigureKestrel(options =>
+                options.Listen(IPAddress.Loopback, 0, endpoint => endpoint.UseHttps(desktopCertificate)));
+        else
+        {
+            string urls = builder.Configuration["urls"] ?? "https://localhost:7130";
+            if (urls.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Any(url => !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException("Для API указывайте только HTTPS-адреса.");
+            builder.WebHost.UseUrls(urls);
+        }
+
+        int loginLimit = builder.Configuration.GetValue("Security:LoginAttemptsPerMinute", 5);
+        if (loginLimit is < 1 or > 1000)
+            throw new InvalidOperationException("Security:LoginAttemptsPerMinute должен быть от 1 до 1000.");
+        string? configuredKey = builder.Configuration["Jwt:Key"];
+        if (configuredKey is not null && Encoding.UTF8.GetByteCount(configuredKey) < 32)
+            throw new InvalidOperationException("Jwt:Key должен содержать не менее 32 байтов.");
 
         var path = DatabasePath(builder.Configuration);
         bool seedDemo = builder.Configuration.GetValue<bool?>("Workshop:SeedDemo") ??
-            (desktop && builder.Configuration["Workshop:Database"] is null);
+            (desktopCertificate is not null && builder.Configuration["Workshop:Database"] is null);
         builder.Services.AddDbContext<WorkshopDb>(options => WorkshopDatabase.Configure(options, path, seedDemo));
         builder.Services.AddScoped<WorkshopStore>();
         builder.Services.AddScoped<IOrderRepository>(services => services.GetRequiredService<WorkshopStore>());
@@ -65,7 +82,8 @@ public static class WorkshopHost
                 options.SerializerOptions.Converters.Add(converter);
         });
 
-        var key = new SymmetricSecurityKey(RandomNumberGenerator.GetBytes(32));
+        var key = new SymmetricSecurityKey(configuredKey is null
+            ? RandomNumberGenerator.GetBytes(32) : Encoding.UTF8.GetBytes(configuredKey));
         builder.Services.AddSingleton(new SessionTokens(key));
         builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
         {
@@ -100,7 +118,7 @@ public static class WorkshopHost
             options.AddPolicy("Login", context => RateLimitPartition.GetFixedWindowLimiter(
                 context.Connection.RemoteIpAddress?.ToString() ?? "local", _ => new FixedWindowRateLimiterOptions
                 {
-                    PermitLimit = 30,
+                    PermitLimit = loginLimit,
                     Window = TimeSpan.FromMinutes(1),
                     AutoReplenishment = true
                 }));
@@ -116,8 +134,11 @@ public static class WorkshopHost
         app.UseSerilogRequestLogging();
         app.UseExceptionHandler(handler => handler.Run(HandleError));
         app.UseStatusCodePages();
-        app.UseSwagger();
-        app.UseSwaggerUI();
+        if (app.Environment.IsDevelopment())
+        {
+            app.UseSwagger();
+            app.UseSwaggerUI();
+        }
         app.UseRateLimiter();
         app.UseAuthentication();
         app.UseAuthorization();

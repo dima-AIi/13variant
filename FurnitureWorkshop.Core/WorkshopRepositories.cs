@@ -4,6 +4,7 @@ public interface IOrderRepository
 {
     Task<List<OrderInfo>> FindOrders(UserInfo user, OrderStatus? status, string? search, CancellationToken ct);
     Task<OrderInfo?> FindOrder(int id, UserInfo user, CancellationToken ct);
+    Task<List<OrderMetrics>> FindMetrics(UserInfo user, CancellationToken ct);
     Task<int> CreateOrder(OrderInput input, CancellationToken ct);
     Task<bool> UpdateOrder(int id, OrderInput input, CancellationToken ct);
     Task<bool> Transition(int id, UserInfo user, TransitionInput input, CancellationToken ct);

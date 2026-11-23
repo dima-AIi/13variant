@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace FurnitureWorkshop.Core;
 
 public enum OrderStatus { Measurement, Design, Manufacturing, Delivery, Installed, Cancelled }
@@ -11,6 +13,7 @@ public static class Roles
     public const string Staff = Admin + "," + Manager;
 }
 
+[DebuggerDisplay("Заказчик #{Id}")]
 public sealed class Customer
 {
     public int Id { get; set; }
@@ -20,6 +23,7 @@ public sealed class Customer
     public DateTime? RegisteredAt { get; set; }
 }
 
+[DebuggerDisplay("Пользователь #{Id} ({Role,nq})")]
 public sealed class WorkshopUser
 {
     public int Id { get; set; }
@@ -29,6 +33,7 @@ public sealed class WorkshopUser
     public string PasswordHash { get; set; } = "";
 }
 
+[DebuggerDisplay("Заказ #{Id} · {Status} · версия {Version}")]
 public sealed class FurnitureOrder
 {
     public int Id { get; set; }
@@ -61,6 +66,7 @@ public sealed record OrderInfo(int Id, int CustomerId, string Customer, string P
     decimal? Amount, DateOnly? DeliveryDate, string? CancellationReason, DateTime CreatedAt,
     DateTime? CompletedAt, int Version);
 public sealed record StatusCount(OrderStatus Status, int Count);
+public readonly record struct OrderMetrics(OrderStatus Status, decimal? Amount, DateTime CreatedAt, DateTime? CompletedAt);
 public sealed record WorkshopStatistics(int Total, int Open, int Installed, int Cancelled,
     decimal TotalAmount, decimal InstalledAmount, double? AverageDays, StatusCount[] ByStatus);
 public sealed record ImportResult(int Imported);

@@ -29,33 +29,18 @@ internal sealed class WorkshopDialogs(Window owner)
         form.Add("AssemblerSelect", "_Сборщик", assembler);
 
         var amount = form.Text("AmountInput", "С_умма, ₽", order?.Amount?.ToString("0.##", Russian), 24);
-        var delivery = new DatePicker { SelectedDate = order?.DeliveryDate?.ToDateTime(TimeOnly.MinValue) };
-        DatePickerDateValidationErrorEventArgs? invalidDate = null;
-        delivery.DateValidationError += (_, error) => invalidDate = error;
-        form.Add("DeliveryDateInput", "_Дата доставки", delivery);
+        var delivery = form.Text("DeliveryDateInput", "_Дата доставки (ДД.ММ.ГГГГ)",
+            order?.DeliveryDate?.ToString("dd.MM.yyyy", CultureInfo.InvariantCulture), 10);
 
         return form.Save("Сохранить", () =>
         {
             if (customer.SelectedValue is not int customerId)
                 throw new RuleException("Выберите заказчика.");
 
-            decimal? actualAmount = null;
-            if (amount.Text.Trim().Length > 0)
-            {
-                var amountText = amount.Text.Trim().Replace('.', ',');
-                if (!decimal.TryParse(amountText, NumberStyles.AllowDecimalPoint, Russian, out var parsed) || parsed <= 0)
-                    throw new RuleException("Введите положительную сумму, например 18500,50.");
-                actualAmount = parsed;
-            }
-
-            if (invalidDate is not null && delivery.SelectedDate is null && !string.IsNullOrWhiteSpace(delivery.Text))
-                throw new RuleException("Проверьте дату доставки.");
-
             int? assemblerId = assembler.SelectedValue is int id && id > 0 ? id : null;
-            var deliveryDate = delivery.SelectedDate is { } day ? DateOnly.FromDateTime(day) : (DateOnly?)null;
             return new OrderInput(customerId, InputRules.Required(title.Text, "Изделие", 180),
                 InputRules.Required(address.Text, "Адрес установки", 220), notes.Text, assemblerId,
-                actualAmount, deliveryDate, order?.Version);
+                InputRules.ParseAmount(amount.Text), InputRules.ParseDeliveryDate(delivery.Text), order?.Version);
         });
     }
 

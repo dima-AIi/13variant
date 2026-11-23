@@ -1,4 +1,6 @@
 using System.Net.Http;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Windows;
 using FurnitureWorkshop.Api;
 using Microsoft.AspNetCore.Builder;
@@ -10,6 +12,7 @@ public partial class App : Application
     private WebApplication? host;
     private HttpClient? http;
     private Task<WorkshopClient>? client;
+    private X509Certificate2? certificate;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -23,10 +26,25 @@ public partial class App : Application
 
     private async Task<WorkshopClient> StartClient()
     {
-        host = WorkshopHost.Build([], desktop: true);
+        certificate = LoopbackCertificate.Create();
+        var expected = certificate.GetCertHash(HashAlgorithmName.SHA256);
+        host = WorkshopHost.Build([], certificate);
         await WorkshopHost.Initialize(host);
         await host.StartAsync();
-        http = new HttpClient { BaseAddress = new Uri(host.Urls.Single()), Timeout = TimeSpan.FromSeconds(12) };
+        var transport = new HttpClientHandler
+        {
+            AllowAutoRedirect = false,
+            UseProxy = false,
+            ServerCertificateCustomValidationCallback = (request, presented, _, _) =>
+                request.RequestUri is { Scheme: "https", Host: "127.0.0.1" } &&
+                presented is not null &&
+                CryptographicOperations.FixedTimeEquals(expected, presented.GetCertHash(HashAlgorithmName.SHA256))
+        };
+        http = new HttpClient(transport)
+        {
+            BaseAddress = new Uri(host.Urls.Single()),
+            Timeout = TimeSpan.FromSeconds(12)
+        };
         return new WorkshopClient(http);
     }
 
@@ -74,6 +92,8 @@ public partial class App : Application
         finally
         {
             http?.Dispose();
+            if (client?.IsCompleted == true)
+                certificate?.Dispose();
             ClientLog.Info("Завершение работы WPF-клиента");
             base.OnExit(e);
         }

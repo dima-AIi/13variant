@@ -19,7 +19,9 @@ public static class WorkshopFiles
     {
         csv = csv.TrimStart('\uFEFF');
         using var parser = new TextFieldParser(new StringReader(csv));
-        parser.SetDelimiters(csv.Split('\n', 2)[0].Contains(';') ? ";" : ",");
+        var physicalLines = csv.Split(["\r\n", "\r", "\n"], StringSplitOptions.None);
+        var headerLine = physicalLines.FirstOrDefault(line => !string.IsNullOrWhiteSpace(line));
+        parser.SetDelimiters(headerLine?.Contains(';') == true ? ";" : ",");
         var customers = new List<CustomerInput>();
         var errors = new List<CsvRowError>();
         try
@@ -40,6 +42,8 @@ public static class WorkshopFiles
                 throw new RuleException("Один импорт допускает до 5000 заказчиков.");
 
             long line = parser.LineNumber;
+            while (line > 0 && line <= physicalLines.Length && string.IsNullOrWhiteSpace(physicalLines[line - 1]))
+                line++;
             try
             {
                 var fields = parser.ReadFields()!;

@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../FurnitureWorkshop.Data/FurnitureWorkshop.Data.csproj" />
+  </ItemGroup>
+</Project>
