@@ -14,6 +14,7 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        ClientLog.Start();
         FrameworkElement.LanguageProperty.OverrideMetadata(typeof(FrameworkElement),
             new FrameworkPropertyMetadata(System.Windows.Markup.XmlLanguage.GetLanguage("ru-RU")));
         client = Task.Run(StartClient);
@@ -73,6 +74,7 @@ public partial class App : Application
         finally
         {
             http?.Dispose();
+            ClientLog.Info("Завершение работы WPF-клиента");
             base.OnExit(e);
         }
     }

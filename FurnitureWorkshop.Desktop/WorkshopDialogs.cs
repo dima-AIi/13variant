@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Automation;
 using System.Windows.Media;
 using FurnitureWorkshop.Core;
 using Microsoft.Win32;
@@ -16,22 +17,22 @@ internal sealed class WorkshopDialogs(Window owner)
         var form = new Form(owner, order is null ? "Новый заказ" : $"Заказ №{order.Id}");
         var customer = new ComboBox { ItemsSource = customers, DisplayMemberPath = "Name", SelectedValuePath = "Id" };
         customer.SelectedValue = order?.CustomerId ?? customers[0].Id;
-        form.Add("_Заказчик", customer);
+        form.Add("CustomerSelect", "_Заказчик", customer);
 
-        var title = form.Text("_Изделие", order?.Title, 180);
-        var address = form.Text("_Адрес установки", order?.Address, 220);
-        var notes = form.Text("_Примечания и размеры", order?.Notes, 2000, multiline: true);
+        var title = form.Text("TitleInput", "_Изделие", order?.Title, 180);
+        var address = form.Text("AddressInput", "_Адрес установки", order?.Address, 220);
+        var notes = form.Text("NotesInput", "_Примечания и размеры", order?.Notes, 2000, multiline: true);
 
         var assignees = new[] { new UserInfo(0, "", "Без назначения", "") }.Concat(assemblers).ToArray();
         var assembler = new ComboBox { ItemsSource = assignees, DisplayMemberPath = "DisplayName", SelectedValuePath = "Id" };
         assembler.SelectedValue = order?.AssemblerId ?? 0;
-        form.Add("_Сборщик", assembler);
+        form.Add("AssemblerSelect", "_Сборщик", assembler);
 
-        var amount = form.Text("С_умма, ₽", order?.Amount?.ToString("0.##", Russian), 24);
+        var amount = form.Text("AmountInput", "С_умма, ₽", order?.Amount?.ToString("0.##", Russian), 24);
         var delivery = new DatePicker { SelectedDate = order?.DeliveryDate?.ToDateTime(TimeOnly.MinValue) };
         DatePickerDateValidationErrorEventArgs? invalidDate = null;
         delivery.DateValidationError += (_, error) => invalidDate = error;
-        form.Add("_Дата доставки", delivery);
+        form.Add("DeliveryDateInput", "_Дата доставки", delivery);
 
         return form.Save("Сохранить", () =>
         {
@@ -61,9 +62,9 @@ internal sealed class WorkshopDialogs(Window owner)
     public CustomerInput? Customer(CustomerInfo? customer)
     {
         var form = new Form(owner, customer is null ? "Новый заказчик" : "Редактирование заказчика");
-        var name = form.Text("_Имя", customer?.Name, 150);
-        var phone = form.Text("_Телефон", customer?.Phone, 40);
-        var email = form.Text("_Эл. почта", customer?.Email, 150);
+        var name = form.Text("CustomerNameInput", "_Имя", customer?.Name, 150);
+        var phone = form.Text("CustomerPhoneInput", "_Телефон", customer?.Phone, 40);
+        var email = form.Text("CustomerEmailInput", "_Эл. почта", customer?.Email, 150);
         return form.Save("Сохранить", () => InputRules.Customer(new CustomerInput(name.Text, phone.Text, email.Text)));
     }
 
@@ -73,8 +74,8 @@ internal sealed class WorkshopDialogs(Window owner)
         form.Summary($"Сейчас: {WorkshopText.Status(order.Status)}");
         var options = OrderRules.Next(order.Status).Select(status => new StatusOption(status, WorkshopText.Status(status))).ToArray();
         var status = new ComboBox { ItemsSource = options, DisplayMemberPath = "Name", SelectedIndex = 0 };
-        form.Add("Новый _статус", status);
-        var reason = form.Text("_Причина отмены", null, 500, multiline: true);
+        form.Add("NextStatusSelect", "Новый _статус", status);
+        var reason = form.Text("CancellationReasonInput", "_Причина отмены", null, 500, multiline: true);
         reason.IsEnabled = ((StatusOption?)status.SelectedItem)?.Status == OrderStatus.Cancelled;
         status.SelectionChanged += (_, _) => reason.IsEnabled =
             ((StatusOption?)status.SelectedItem)?.Status == OrderStatus.Cancelled;
@@ -109,6 +110,21 @@ internal sealed class WorkshopDialogs(Window owner)
     {
         var dialog = new OpenFileDialog { Filter = "Файлы CSV (*.csv)|*.csv", CheckFileExists = true };
         return dialog.ShowDialog(owner) == true ? dialog.FileName : null;
+    }
+
+    public void ShowImportErrors(IReadOnlyList<CsvRowError> errors)
+    {
+        var form = new Form(owner, "Ошибки импорта CSV");
+        form.Summary($"Записи не добавлены. Исправьте ошибки в файле ({errors.Count}).");
+        form.Add("ImportErrorReport", "Строки с ошибками", new TextBox
+        {
+            IsReadOnly = true,
+            MaxHeight = 360,
+            TextWrapping = TextWrapping.Wrap,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Text = string.Join(Environment.NewLine, errors.Select(row => $"{row.Line}: {row.Message}"))
+        });
+        form.Show();
     }
 
     public string? SaveExport(string format)
@@ -153,13 +169,14 @@ internal sealed class WorkshopDialogs(Window owner)
             window.Content = layout;
         }
 
-        public void Add(string caption, Control control)
+        public void Add(string id, string caption, Control control)
         {
             fields.Children.Add(new Label { Content = caption, Target = control, Padding = new Thickness(0, 7, 0, 4) });
+            AutomationProperties.SetAutomationId(control, id);
             fields.Children.Add(control);
         }
 
-        public TextBox Text(string caption, string? value, int max, bool multiline = false)
+        public TextBox Text(string id, string caption, string? value, int max, bool multiline = false)
         {
             var control = new TextBox
             {
@@ -172,7 +189,7 @@ internal sealed class WorkshopDialogs(Window owner)
                 control.MaxHeight = 90;
                 control.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
             }
-            Add(caption, control);
+            Add(id, caption, control);
             return control;
         }
 
@@ -196,6 +213,8 @@ internal sealed class WorkshopDialogs(Window owner)
                     message.Text = error.Message;
                 }
             };
+            AutomationProperties.SetAutomationId(cancel, "FormCloseButton");
+            AutomationProperties.SetAutomationId(save, "FormSaveButton");
             footer.Children.Add(cancel);
             footer.Children.Add(save);
             return window.ShowDialog() == true ? result : null;
@@ -203,7 +222,9 @@ internal sealed class WorkshopDialogs(Window owner)
 
         public void Show()
         {
-            footer.Children.Add(new Button { Content = "Закрыть", IsCancel = true, IsDefault = true });
+            var close = new Button { Content = "Закрыть", IsCancel = true, IsDefault = true };
+            AutomationProperties.SetAutomationId(close, "FormCloseButton");
+            footer.Children.Add(close);
             window.ShowDialog();
         }
     }

@@ -1,12 +1,13 @@
 namespace FurnitureWorkshop.Core;
 
 public enum OrderStatus { Measurement, Design, Manufacturing, Delivery, Installed, Cancelled }
+public enum UserRole { Admin, Manager, Assembler }
 
 public static class Roles
 {
-    public const string Admin = "Admin";
-    public const string Manager = "Manager";
-    public const string Assembler = "Assembler";
+    public const string Admin = nameof(UserRole.Admin);
+    public const string Manager = nameof(UserRole.Manager);
+    public const string Assembler = nameof(UserRole.Assembler);
     public const string Staff = Admin + "," + Manager;
 }
 
@@ -16,6 +17,7 @@ public sealed class Customer
     public string Name { get; set; } = "";
     public string Phone { get; set; } = "";
     public string Email { get; set; } = "";
+    public DateTime? RegisteredAt { get; set; }
 }
 
 public sealed class WorkshopUser
@@ -64,4 +66,12 @@ public sealed record WorkshopStatistics(int Total, int Open, int Installed, int 
 public sealed record ImportResult(int Imported);
 public sealed record HealthInfo(string Status);
 
-public sealed class RuleException(string message) : Exception(message);
+public class RuleException(string message) : Exception(message);
+public sealed class OrderConflictException() : Exception("Обновите список, откройте заказ и повторите действие.");
+public sealed record CsvRowError(long Line, string Message);
+public sealed class CsvImportException(IReadOnlyList<CsvRowError> errors) :
+    RuleException(string.Join(Environment.NewLine, errors.Take(10).Select(row => $"Строка {row.Line}: {row.Message}"))
+        + (errors.Count > 10 ? $"\nВсего ошибок: {errors.Count}." : ""))
+{
+    public IReadOnlyList<CsvRowError> Errors { get; } = errors;
+}

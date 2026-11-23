@@ -28,6 +28,7 @@ public sealed class WorkshopDb(DbContextOptions<WorkshopDb> options) : DbContext
             value => value, value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
         order.Property(row => row.CreatedAt).HasConversion(utc);
         order.Property(row => row.CompletedAt).HasConversion(utc);
+        model.Entity<Customer>().Property(row => row.RegisteredAt).HasConversion(utc);
         order.HasOne(row => row.Customer).WithMany().HasForeignKey(row => row.CustomerId).OnDelete(DeleteBehavior.Restrict);
         order.HasOne(row => row.Assembler).WithMany().HasForeignKey(row => row.AssemblerId).OnDelete(DeleteBehavior.Restrict);
     }

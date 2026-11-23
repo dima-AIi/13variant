@@ -3,8 +3,10 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using FurnitureWorkshop.Core;
+using FurnitureWorkshop.Data;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace FurnitureWorkshop.Tests;
@@ -14,6 +16,23 @@ public sealed class ApiTests
     private static string DemoPassword(string account) =>
         Environment.GetEnvironmentVariable($"WORKSHOP_DEMO_{account}_PASSWORD")
         ?? throw new InvalidOperationException($"Set WORKSHOP_DEMO_{account}_PASSWORD before running integration tests.");
+
+    [Fact]
+    public async Task UnreadableStoredHashRejectsLoginWithoutServerError()
+    {
+        using var server = new DatabaseFactory();
+        using var client = server.CreateClient();
+        await using var scope = server.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<WorkshopDb>();
+        var user = await db.Users.FindAsync(2);
+        user!.PasswordHash = "invalid-hash";
+        await db.SaveChangesAsync();
+
+        using var response = await client.PostAsJsonAsync("/api/auth/login",
+            new LoginInput("manager", DemoPassword("MANAGER")));
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.DoesNotContain("invalid-hash", await response.Content.ReadAsStringAsync());
+    }
 
     [Fact]
     public async Task AccessIsEnforcedForAllRolesAndLogoutRevokesToken()

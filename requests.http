@@ -1,0 +1,619 @@
+# Выполнять сверху вниз на отдельной чистой базе с Workshop__SeedDemo=true.
+# Пароли берутся из переменных среды WORKSHOP_DEMO_*_PASSWORD.
+# Запросы создают и изменяют учебные записи. Настройки см. docs/api-tests.md.
+@baseUrl = http://127.0.0.1:5130
+
+###
+
+# @name health
+# expect: 200
+GET {{baseUrl}}/health
+
+###
+
+# @name anonymous
+# expect: 401
+GET {{baseUrl}}/api/orders
+
+###
+
+# @name bad_login
+# expect: 401
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json; charset=utf-8
+
+{"login": "admin", "password": "invalid"}
+
+###
+
+# @name login_admin
+# expect: 200
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json; charset=utf-8
+
+{"login": "admin", "password": "{{$processEnv WORKSHOP_DEMO_ADMIN_PASSWORD}}"}
+
+###
+
+# @name login_manager
+# expect: 200
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json; charset=utf-8
+
+{"login": "manager", "password": "{{$processEnv WORKSHOP_DEMO_MANAGER_PASSWORD}}"}
+
+###
+
+# @name login_ivan
+# expect: 200
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json; charset=utf-8
+
+{"login": "ivan", "password": "{{$processEnv WORKSHOP_DEMO_IVAN_PASSWORD}}"}
+
+###
+
+# @name demo_check
+# expect: 200
+GET {{baseUrl}}/api/debug/requests
+Authorization: Bearer {{login_admin.response.body.$.token}}
+
+###
+
+# @name demo_export_csv
+# expect: 200
+GET {{baseUrl}}/api/orders/export/csv
+Authorization: Bearer {{login_admin.response.body.$.token}}
+
+###
+
+# @name demo_export_json
+# expect: 200
+GET {{baseUrl}}/api/orders/export/json
+Authorization: Bearer {{login_admin.response.body.$.token}}
+
+###
+
+# @name demo_export_xml
+# expect: 200
+GET {{baseUrl}}/api/orders/export/xml
+Authorization: Bearer {{login_admin.response.body.$.token}}
+
+###
+
+# @name prepare_admin
+# expect: 201
+POST {{baseUrl}}/api/orders
+Authorization: Bearer {{login_manager.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"customerId": 1, "title": "Заказ для проверки прав", "address": "Учебный адрес", "assemblerId": 3}
+
+###
+
+# @name admin_me
+# expect: 200
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{login_admin.response.body.$.token}}
+
+###
+
+# @name admin_customers
+# expect: 200
+GET {{baseUrl}}/api/customers
+Authorization: Bearer {{login_admin.response.body.$.token}}
+
+###
+
+# @name admin_new_customer
+# expect: 201
+POST {{baseUrl}}/api/customers
+Authorization: Bearer {{login_admin.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"name": "Учебный заказчик", "phone": "000-00-00"}
+
+###
+
+# @name admin_edit_customer
+# expect: 204
+PUT {{baseUrl}}/api/customers/1
+Authorization: Bearer {{login_admin.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"name": "Анна Белова", "phone": "+7 000 000-01-01", "email": ""}
+
+###
+
+# @name admin_import
+# expect: 200
+POST {{baseUrl}}/api/customers/import
+Authorization: Bearer {{login_admin.response.body.$.token}}
+Content-Type: text/csv; charset=utf-8
+
+Name,Phone,Email
+Учебный импорт,000-00-00,
+
+###
+
+# @name admin_users
+# expect: 200
+GET {{baseUrl}}/api/users
+Authorization: Bearer {{login_admin.response.body.$.token}}
+
+###
+
+# @name admin_assemblers
+# expect: 200
+GET {{baseUrl}}/api/users/assemblers
+Authorization: Bearer {{login_admin.response.body.$.token}}
+
+###
+
+# @name admin_orders
+# expect: 200
+GET {{baseUrl}}/api/orders
+Authorization: Bearer {{login_admin.response.body.$.token}}
+
+###
+
+# @name admin_order
+# expect: 200
+GET {{baseUrl}}/api/orders/{{prepare_admin.response.body.$.id}}
+Authorization: Bearer {{login_admin.response.body.$.token}}
+
+###
+
+# @name admin_new_order
+# expect: 201
+POST {{baseUrl}}/api/orders
+Authorization: Bearer {{login_admin.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"customerId": 1, "title": "Проверка доступа", "address": "Учебный адрес", "assemblerId": 3}
+
+###
+
+# @name admin_edit_order
+# expect: 204
+PUT {{baseUrl}}/api/orders/{{prepare_admin.response.body.$.id}}
+Authorization: Bearer {{login_admin.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"customerId": 1, "title": "Проверка доступа", "address": "Учебный адрес", "assemblerId": 3, "version": 1}
+
+###
+
+# @name admin_transition
+# expect: 204
+POST {{baseUrl}}/api/orders/{{prepare_admin.response.body.$.id}}/transition
+Authorization: Bearer {{login_admin.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"status": "Design", "version": 2}
+
+###
+
+# @name admin_statistics
+# expect: 200
+GET {{baseUrl}}/api/orders/statistics
+Authorization: Bearer {{login_admin.response.body.$.token}}
+
+###
+
+# @name admin_export_csv
+# expect: 200
+GET {{baseUrl}}/api/orders/export/csv
+Authorization: Bearer {{login_admin.response.body.$.token}}
+
+###
+
+# @name admin_export_json
+# expect: 200
+GET {{baseUrl}}/api/orders/export/json
+Authorization: Bearer {{login_admin.response.body.$.token}}
+
+###
+
+# @name admin_export_xml
+# expect: 200
+GET {{baseUrl}}/api/orders/export/xml
+Authorization: Bearer {{login_admin.response.body.$.token}}
+
+###
+
+# @name prepare_manager
+# expect: 201
+POST {{baseUrl}}/api/orders
+Authorization: Bearer {{login_manager.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"customerId": 1, "title": "Заказ для проверки прав", "address": "Учебный адрес", "assemblerId": 3}
+
+###
+
+# @name manager_me
+# expect: 200
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{login_manager.response.body.$.token}}
+
+###
+
+# @name manager_customers
+# expect: 200
+GET {{baseUrl}}/api/customers
+Authorization: Bearer {{login_manager.response.body.$.token}}
+
+###
+
+# @name manager_new_customer
+# expect: 201
+POST {{baseUrl}}/api/customers
+Authorization: Bearer {{login_manager.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"name": "Учебный заказчик", "phone": "000-00-00"}
+
+###
+
+# @name manager_edit_customer
+# expect: 204
+PUT {{baseUrl}}/api/customers/1
+Authorization: Bearer {{login_manager.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"name": "Анна Белова", "phone": "+7 000 000-01-01", "email": ""}
+
+###
+
+# @name manager_import
+# expect: 200
+POST {{baseUrl}}/api/customers/import
+Authorization: Bearer {{login_manager.response.body.$.token}}
+Content-Type: text/csv; charset=utf-8
+
+Name,Phone,Email
+Учебный импорт,000-00-00,
+
+###
+
+# @name manager_users
+# expect: 403
+GET {{baseUrl}}/api/users
+Authorization: Bearer {{login_manager.response.body.$.token}}
+
+###
+
+# @name manager_assemblers
+# expect: 200
+GET {{baseUrl}}/api/users/assemblers
+Authorization: Bearer {{login_manager.response.body.$.token}}
+
+###
+
+# @name manager_orders
+# expect: 200
+GET {{baseUrl}}/api/orders
+Authorization: Bearer {{login_manager.response.body.$.token}}
+
+###
+
+# @name manager_order
+# expect: 200
+GET {{baseUrl}}/api/orders/{{prepare_manager.response.body.$.id}}
+Authorization: Bearer {{login_manager.response.body.$.token}}
+
+###
+
+# @name manager_new_order
+# expect: 201
+POST {{baseUrl}}/api/orders
+Authorization: Bearer {{login_manager.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"customerId": 1, "title": "Проверка доступа", "address": "Учебный адрес", "assemblerId": 3}
+
+###
+
+# @name manager_edit_order
+# expect: 204
+PUT {{baseUrl}}/api/orders/{{prepare_manager.response.body.$.id}}
+Authorization: Bearer {{login_manager.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"customerId": 1, "title": "Проверка доступа", "address": "Учебный адрес", "assemblerId": 3, "version": 1}
+
+###
+
+# @name manager_transition
+# expect: 204
+POST {{baseUrl}}/api/orders/{{prepare_manager.response.body.$.id}}/transition
+Authorization: Bearer {{login_manager.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"status": "Design", "version": 2}
+
+###
+
+# @name manager_statistics
+# expect: 200
+GET {{baseUrl}}/api/orders/statistics
+Authorization: Bearer {{login_manager.response.body.$.token}}
+
+###
+
+# @name manager_export_csv
+# expect: 200
+GET {{baseUrl}}/api/orders/export/csv
+Authorization: Bearer {{login_manager.response.body.$.token}}
+
+###
+
+# @name manager_export_json
+# expect: 200
+GET {{baseUrl}}/api/orders/export/json
+Authorization: Bearer {{login_manager.response.body.$.token}}
+
+###
+
+# @name manager_export_xml
+# expect: 200
+GET {{baseUrl}}/api/orders/export/xml
+Authorization: Bearer {{login_manager.response.body.$.token}}
+
+###
+
+# @name stale_order
+# expect: 409
+POST {{baseUrl}}/api/orders/{{prepare_manager.response.body.$.id}}/transition
+Authorization: Bearer {{login_manager.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"status": "Manufacturing", "version": 1}
+
+###
+
+# @name wrong_status
+# expect: 400
+POST {{baseUrl}}/api/orders/{{prepare_manager.response.body.$.id}}/transition
+Authorization: Bearer {{login_manager.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"status": "Undefined", "version": 3}
+
+###
+
+# @name invalid_filter
+# expect: 400
+GET {{baseUrl}}/api/orders?status=Undefined
+Authorization: Bearer {{login_manager.response.body.$.token}}
+
+###
+
+# @name wrong_csv
+# expect: 400
+POST {{baseUrl}}/api/customers/import
+Authorization: Bearer {{login_manager.response.body.$.token}}
+Content-Type: text/csv; charset=utf-8
+
+Name,Phone,Email
+Анна Воронова,+7 000 000-02-01,anna@example.com
+Виктор Лебедев,+7 000 000-02-02,
+,+7 000 000-02-03,
+Денис Николаев,+7 000 000-02-04,
+Инна Волкова,+7 000 000-02-05,invalid-email
+Михаил Петров,+7 000 000-02-06,
+Ольга Миронова,,
+Павел Иванов,+7 000 000-02-08,
+Роман Кротов,+7 000 000-02-09,
+Софья Соколова,+7 000 000-02-10,
+
+###
+
+# @name prepare_ivan
+# expect: 201
+POST {{baseUrl}}/api/orders
+Authorization: Bearer {{login_manager.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"customerId": 1, "title": "Заказ для проверки прав", "address": "Учебный адрес", "assemblerId": 3}
+
+###
+
+# @name ivan_me
+# expect: 200
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{login_ivan.response.body.$.token}}
+
+###
+
+# @name ivan_customers
+# expect: 403
+GET {{baseUrl}}/api/customers
+Authorization: Bearer {{login_ivan.response.body.$.token}}
+
+###
+
+# @name ivan_new_customer
+# expect: 403
+POST {{baseUrl}}/api/customers
+Authorization: Bearer {{login_ivan.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"name": "Учебный заказчик", "phone": "000-00-00"}
+
+###
+
+# @name ivan_edit_customer
+# expect: 403
+PUT {{baseUrl}}/api/customers/1
+Authorization: Bearer {{login_ivan.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"name": "Анна Белова", "phone": "+7 000 000-01-01", "email": ""}
+
+###
+
+# @name ivan_import
+# expect: 403
+POST {{baseUrl}}/api/customers/import
+Authorization: Bearer {{login_ivan.response.body.$.token}}
+Content-Type: text/csv; charset=utf-8
+
+Name,Phone,Email
+Учебный импорт,000-00-00,
+
+###
+
+# @name ivan_users
+# expect: 403
+GET {{baseUrl}}/api/users
+Authorization: Bearer {{login_ivan.response.body.$.token}}
+
+###
+
+# @name ivan_assemblers
+# expect: 403
+GET {{baseUrl}}/api/users/assemblers
+Authorization: Bearer {{login_ivan.response.body.$.token}}
+
+###
+
+# @name ivan_orders
+# expect: 200
+GET {{baseUrl}}/api/orders
+Authorization: Bearer {{login_ivan.response.body.$.token}}
+
+###
+
+# @name ivan_order
+# expect: 200
+GET {{baseUrl}}/api/orders/{{prepare_ivan.response.body.$.id}}
+Authorization: Bearer {{login_ivan.response.body.$.token}}
+
+###
+
+# @name ivan_new_order
+# expect: 403
+POST {{baseUrl}}/api/orders
+Authorization: Bearer {{login_ivan.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"customerId": 1, "title": "Проверка доступа", "address": "Учебный адрес", "assemblerId": 3}
+
+###
+
+# @name ivan_edit_order
+# expect: 403
+PUT {{baseUrl}}/api/orders/{{prepare_ivan.response.body.$.id}}
+Authorization: Bearer {{login_ivan.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"customerId": 1, "title": "Проверка доступа", "address": "Учебный адрес", "assemblerId": 3, "version": 1}
+
+###
+
+# @name ivan_transition
+# expect: 204
+POST {{baseUrl}}/api/orders/{{prepare_ivan.response.body.$.id}}/transition
+Authorization: Bearer {{login_ivan.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"status": "Design", "version": 1}
+
+###
+
+# @name ivan_statistics
+# expect: 200
+GET {{baseUrl}}/api/orders/statistics
+Authorization: Bearer {{login_ivan.response.body.$.token}}
+
+###
+
+# @name ivan_export_csv
+# expect: 403
+GET {{baseUrl}}/api/orders/export/csv
+Authorization: Bearer {{login_ivan.response.body.$.token}}
+
+###
+
+# @name ivan_export_json
+# expect: 403
+GET {{baseUrl}}/api/orders/export/json
+Authorization: Bearer {{login_ivan.response.body.$.token}}
+
+###
+
+# @name ivan_export_xml
+# expect: 403
+GET {{baseUrl}}/api/orders/export/xml
+Authorization: Bearer {{login_ivan.response.body.$.token}}
+
+###
+
+# @name prepare_foreign
+# expect: 201
+POST {{baseUrl}}/api/orders
+Authorization: Bearer {{login_manager.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"customerId": 1, "title": "Проверка доступа", "address": "Учебный адрес", "assemblerId": 4}
+
+###
+
+# @name foreign_order
+# expect: 404
+GET {{baseUrl}}/api/orders/{{prepare_foreign.response.body.$.id}}
+Authorization: Bearer {{login_ivan.response.body.$.token}}
+
+###
+
+# @name foreign_transition
+# expect: 404
+POST {{baseUrl}}/api/orders/{{prepare_foreign.response.body.$.id}}/transition
+Authorization: Bearer {{login_ivan.response.body.$.token}}
+Content-Type: application/json; charset=utf-8
+
+{"status": "Design", "version": 1}
+
+###
+
+# @name admin_logout
+# expect: 204
+POST {{baseUrl}}/api/auth/logout
+Authorization: Bearer {{login_admin.response.body.$.token}}
+
+###
+
+# @name admin_after_logout
+# expect: 401
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{login_admin.response.body.$.token}}
+
+###
+
+# @name manager_logout
+# expect: 204
+POST {{baseUrl}}/api/auth/logout
+Authorization: Bearer {{login_manager.response.body.$.token}}
+
+###
+
+# @name manager_after_logout
+# expect: 401
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{login_manager.response.body.$.token}}
+
+###
+
+# @name ivan_logout
+# expect: 204
+POST {{baseUrl}}/api/auth/logout
+Authorization: Bearer {{login_ivan.response.body.$.token}}
+
+###
+
+# @name ivan_after_logout
+# expect: 401
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{login_ivan.response.body.$.token}}

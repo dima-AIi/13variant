@@ -20,38 +20,47 @@ public static class WorkshopFiles
         csv = csv.TrimStart('\uFEFF');
         using var parser = new TextFieldParser(new StringReader(csv));
         parser.SetDelimiters(csv.Split('\n', 2)[0].Contains(';') ? ";" : ",");
+        var customers = new List<CustomerInput>();
+        var errors = new List<CsvRowError>();
         try
         {
             var header = parser.ReadFields();
             if (header is null || !header.SequenceEqual(new[] { "Name", "Phone", "Email" }, StringComparer.OrdinalIgnoreCase))
                 throw new RuleException("Заголовок CSV должен содержать Name,Phone,Email.");
-
-            var customers = new List<CustomerInput>();
-            while (!parser.EndOfData)
-            {
-                long line = parser.LineNumber;
-                var fields = parser.ReadFields()!;
-                if (fields.Length != 3)
-                    throw new RuleException($"Строка {line}: ожидаются три поля.");
-                try
-                {
-                    customers.Add(InputRules.Customer(new CustomerInput(fields[0], fields[1], fields[2])));
-                }
-                catch (RuleException error)
-                {
-                    throw new RuleException($"Строка {line}: {error.Message}");
-                }
-                if (customers.Count > 5000)
-                    throw new RuleException("Один импорт допускает до 5000 заказчиков.");
-            }
-            if (customers.Count == 0)
-                throw new RuleException("В CSV отсутствуют заказчики.");
-            return customers;
         }
         catch (MalformedLineException error)
         {
-            throw new RuleException($"Некорректный CSV в строке {error.LineNumber}.");
+            throw new CsvImportException([new CsvRowError(error.LineNumber, "Некорректный заголовок CSV.")]);
         }
+
+        int records = 0;
+        while (!parser.EndOfData)
+        {
+            if (++records > 5000)
+                throw new RuleException("Один импорт допускает до 5000 заказчиков.");
+
+            long line = parser.LineNumber;
+            try
+            {
+                var fields = parser.ReadFields()!;
+                if (fields.Length != 3)
+                    throw new RuleException("Ожидаются три поля.");
+                customers.Add(InputRules.Customer(new CustomerInput(fields[0], fields[1], fields[2])));
+            }
+            catch (RuleException error)
+            {
+                errors.Add(new CsvRowError(line, error.Message));
+            }
+            catch (MalformedLineException error)
+            {
+                errors.Add(new CsvRowError(error.LineNumber, "Некорректный CSV."));
+            }
+        }
+        if (errors.Count != 0)
+            throw new CsvImportException(errors);
+        if (customers.Count == 0)
+            throw new RuleException("В CSV отсутствуют заказчики.");
+        return customers;
     }
 
     public static (byte[] Bytes, string ContentType) Export(string format, IReadOnlyList<OrderInfo> orders)
