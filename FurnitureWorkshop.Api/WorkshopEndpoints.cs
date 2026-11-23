@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using FurnitureWorkshop.Core;
 using FurnitureWorkshop.Data;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -12,9 +13,7 @@ internal static class WorkshopEndpoints
 {
     public static void MapWorkshopEndpoints(this WebApplication app)
     {
-        app.MapGet("/health", async (WorkshopDb db, CancellationToken ct) =>
-            await db.Database.CanConnectAsync(ct) ? Results.Ok(new HealthInfo("ok")) :
-                Results.Problem(statusCode: 503, title: "База данных недоступна"));
+        app.MapGet("/health", CheckHealth);
 
         var auth = app.MapGroup("/api/auth").WithTags("Аутентификация");
         auth.MapPost("/login", Login).RequireRateLimiting("Login");
@@ -28,6 +27,20 @@ internal static class WorkshopEndpoints
         app.MapPost("/api/customers/import", Import).WithTags("Заказчики")
             .RequireAuthorization("Staff").Accepts<string>("text/csv");
         app.MapGet("/api/orders/export/{format}", Export).WithTags("Заказы").RequireAuthorization("Staff");
+    }
+
+    private static async Task<IResult> CheckHealth(WorkshopDb db, ILogger<HealthInfo> logger, CancellationToken ct)
+    {
+        try
+        {
+            await db.Orders.AnyAsync(ct);
+            return Results.Ok(new HealthInfo("ok"));
+        }
+        catch (SqliteException error)
+        {
+            logger.LogWarning("Проверка базы не прошла: код SQLite {ErrorCode}", error.SqliteErrorCode);
+            return Results.Problem(statusCode: 503, title: "База данных недоступна");
+        }
     }
 
     private static async Task<IResult> Login(LoginInput input, IUserRepository users, SessionTokens tokens,

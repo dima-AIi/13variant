@@ -1,3 +1,6 @@
+using System.Diagnostics;
+using System.Globalization;
+
 namespace FurnitureWorkshop.Core;
 
 public static class OrderRules
@@ -32,24 +35,75 @@ public static class OrderRules
             order.CompletedAt = now;
         order.Status = target;
         order.Version++;
+        Debug.Assert(order.Status != OrderStatus.Installed || order.CompletedAt.HasValue);
+        Debug.Assert(order.Status != OrderStatus.Cancelled || !string.IsNullOrWhiteSpace(order.CancellationReason));
     }
 
-    public static WorkshopStatistics Statistics(IReadOnlyList<OrderInfo> rows)
+    public static WorkshopStatistics Statistics(IReadOnlyList<OrderInfo> rows) =>
+        StatisticsFromMetrics(rows.Select(row => new OrderMetrics(row.Status, row.Amount, row.CreatedAt, row.CompletedAt)));
+
+    public static WorkshopStatistics StatisticsFromMetrics(IEnumerable<OrderMetrics> rows)
     {
-        var installed = rows.Where(row => row.Status == OrderStatus.Installed).ToArray();
-        var durations = installed.Where(row => row.CompletedAt.HasValue)
-            .Select(row => (row.CompletedAt!.Value - row.CreatedAt).TotalDays).ToArray();
-        return new WorkshopStatistics(rows.Count, rows.Count(row => !IsFinal(row.Status)),
-            installed.Length, rows.Count(row => row.Status == OrderStatus.Cancelled),
-            rows.Sum(row => row.Amount ?? 0), installed.Sum(row => row.Amount ?? 0),
-            durations.Length == 0 ? null : Math.Round(durations.Average(), 2),
-            Enum.GetValues<OrderStatus>().Select(status =>
-                new StatusCount(status, rows.Count(row => row.Status == status))).ToArray());
+        var statuses = Enum.GetValues<OrderStatus>();
+        var counts = new int[statuses.Length];
+        int total = 0, durationCount = 0;
+        decimal totalAmount = 0, installedAmount = 0;
+        double duration = 0;
+        foreach (var row in rows)
+        {
+            total++;
+            if ((uint)row.Status < counts.Length)
+                counts[(int)row.Status]++;
+            totalAmount += row.Amount ?? 0;
+            if (row.Status != OrderStatus.Installed)
+                continue;
+            installedAmount += row.Amount ?? 0;
+            if (row.CompletedAt is { } completed && completed >= row.CreatedAt)
+            {
+                duration += (completed - row.CreatedAt).TotalDays;
+                durationCount++;
+            }
+        }
+        int installed = counts[(int)OrderStatus.Installed], cancelled = counts[(int)OrderStatus.Cancelled];
+        return new WorkshopStatistics(total, total - installed - cancelled, installed, cancelled, totalAmount,
+            installedAmount, durationCount == 0 ? null : Math.Round(duration / durationCount, 2),
+            statuses.Select(status => new StatusCount(status, counts[(int)status])).ToArray());
     }
 }
 
 public static class InputRules
 {
+    public static decimal? ParseAmount(string? value)
+    {
+        var text = (value ?? "").Trim();
+        if (text.Length == 0)
+            return null;
+        int separator = text.IndexOfAny([',', '.']);
+        if ((separator >= 0 && text.Length - separator - 1 is < 1 or > 2) ||
+            !decimal.TryParse(text.Replace(',', '.'), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture,
+                out var amount))
+            throw new RuleException("Введите сумму без разделителей тысяч, максимум с двумя знаками после запятой.");
+        CheckAmount(amount);
+        return amount;
+    }
+
+    public static void CheckAmount(decimal? amount)
+    {
+        if (amount is <= 0 or > 999_999_999 || amount is { } value && value != decimal.Round(value, 2))
+            throw new RuleException("Сумма должна быть положительной, до 999 999 999 ₽ и максимум с двумя знаками после запятой.");
+    }
+
+    public static DateOnly? ParseDeliveryDate(string? value)
+    {
+        var text = (value ?? "").Trim();
+        if (text.Length == 0)
+            return null;
+        if (DateOnly.TryParseExact(text, ["dd.MM.yyyy", "yyyy-MM-dd"], CultureInfo.InvariantCulture, DateTimeStyles.None,
+                out var date))
+            return date;
+        throw new RuleException("Введите дату доставки в формате ДД.ММ.ГГГГ, например 23.11.2026.");
+    }
+
     public static string Required(string? value, string field, int max)
     {
         var trimmed = Optional(value, field, max);

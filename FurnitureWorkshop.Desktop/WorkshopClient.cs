@@ -87,7 +87,12 @@ internal sealed class WorkshopClient(HttpClient http)
         {
             response = await http.SendAsync(request);
         }
-        catch (Exception error) when (error is HttpRequestException or TaskCanceledException)
+        catch (TaskCanceledException error)
+        {
+            ClientLog.Write(error);
+            throw new ClientException("Истекло время ожидания локального сервера. Повторите действие.");
+        }
+        catch (HttpRequestException error)
         {
             ClientLog.Write(error);
             throw new ClientException("Локальный сервер не ответил. Повторите действие.");

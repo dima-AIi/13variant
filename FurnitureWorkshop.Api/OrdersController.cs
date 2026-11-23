@@ -45,5 +45,5 @@ public sealed class OrdersController(IOrderRepository orders, ILogger<OrdersCont
 
     [HttpGet("statistics")]
     public async Task<WorkshopStatistics> Statistics(CancellationToken ct) =>
-        OrderRules.Statistics(await orders.FindOrders(SessionTokens.User(User), null, null, ct));
+        OrderRules.StatisticsFromMetrics(await orders.FindMetrics(SessionTokens.User(User), ct));
 }

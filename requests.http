@@ -1,7 +1,7 @@
 # Выполнять сверху вниз на отдельной чистой базе с Workshop__SeedDemo=true.
 # Пароли берутся из переменных среды WORKSHOP_DEMO_*_PASSWORD.
 # Запросы создают и изменяют учебные записи. Настройки см. docs/api-tests.md.
-@baseUrl = http://127.0.0.1:5130
+@baseUrl = https://localhost:7130
 
 ###
 

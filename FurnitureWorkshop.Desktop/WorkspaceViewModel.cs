@@ -1,4 +1,5 @@
 using System.IO;
+using System.Diagnostics;
 using System.Windows.Input;
 using FurnitureWorkshop.Core;
 
@@ -149,7 +150,10 @@ internal sealed class WorkspaceViewModel : AsyncViewModel
             var format = (string)selectedFormat!;
             if (dialogs.SaveExport(format) is not { } path)
                 return;
+            var timer = Stopwatch.StartNew();
             await File.WriteAllBytesAsync(path, await api.Export(format, SelectedFilter?.Status, Search));
+            timer.Stop();
+            Debug.WriteLine($"Экспорт {format}: {timer.ElapsedMilliseconds} мс");
             Message = $"Заказы выгружены в {Path.GetFileName(path)}.";
         }, () => IsStaff);
         Logout = Run(async _ =>
