@@ -11,11 +11,9 @@ using Xunit;
 
 namespace FurnitureWorkshop.Tests;
 
-public sealed class ApiTests
+public sealed partial class ApiTests
 {
-    private static string DemoPassword(string account) =>
-        Environment.GetEnvironmentVariable($"WORKSHOP_DEMO_{account}_PASSWORD")
-        ?? throw new InvalidOperationException($"Set WORKSHOP_DEMO_{account}_PASSWORD before running integration tests.");
+    private static readonly string TestPassword = Guid.NewGuid().ToString("N");
 
     [Fact]
     public async Task UnreadableStoredHashRejectsLoginWithoutServerError()
@@ -29,7 +27,7 @@ public sealed class ApiTests
         await db.SaveChangesAsync();
 
         using var response = await client.PostAsJsonAsync("/api/auth/login",
-            new LoginInput("manager", DemoPassword("MANAGER")));
+            new LoginInput("manager", TestPassword));
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.DoesNotContain("invalid-hash", await response.Content.ReadAsStringAsync());
     }
@@ -39,10 +37,10 @@ public sealed class ApiTests
     {
         using var server = new DatabaseFactory();
         using var anonymous = server.CreateClient();
-        using var admin = await SignIn(server, "admin", DemoPassword("ADMIN"), Roles.Admin);
-        using var manager = await SignIn(server, "manager", DemoPassword("MANAGER"), Roles.Manager);
-        using var first = await SignIn(server, "ivan", DemoPassword("IVAN"), Roles.Assembler);
-        using var second = await SignIn(server, "pavel", DemoPassword("PAVEL"), Roles.Assembler);
+        using var admin = await SignIn(server, "admin", TestPassword, Roles.Admin);
+        using var manager = await SignIn(server, "manager", TestPassword, Roles.Manager);
+        using var first = await SignIn(server, "ivan", TestPassword, Roles.Assembler);
+        using var second = await SignIn(server, "pavel", TestPassword, Roles.Assembler);
 
         Assert.Equal(HttpStatusCode.Unauthorized, (await anonymous.GetAsync("/api/orders")).StatusCode);
         Assert.Equal(4, (await Get<UserInfo[]>(admin, "/api/users")).Length);
@@ -74,7 +72,7 @@ public sealed class ApiTests
     public async Task OrderAdvancesWithValidationAndRejectsStaleEdits()
     {
         using var server = new DatabaseFactory();
-        using var manager = await SignIn(server, "manager", DemoPassword("MANAGER"), Roles.Manager);
+        using var manager = await SignIn(server, "manager", TestPassword, Roles.Manager);
         int customer = await CreateCustomer(manager);
         int order = await CreateOrder(manager, customer, null, "Гардероб");
         var path = $"/api/orders/{order}";
@@ -119,7 +117,7 @@ public sealed class ApiTests
     public async Task ImportsAtomicallyAndExportsFilteredOrders()
     {
         using var server = new DatabaseFactory();
-        using var manager = await SignIn(server, "manager", DemoPassword("MANAGER"), Roles.Manager);
+        using var manager = await SignIn(server, "manager", TestPassword, Roles.Manager);
         using var wrong = new StringContent("Name;Phone;Email\nЗаказчик;123;\nОшибка;;", Encoding.UTF8, "text/csv");
         Assert.Equal(HttpStatusCode.BadRequest, (await manager.PostAsync("/api/customers/import", wrong)).StatusCode);
         Assert.Empty(await Get<CustomerInfo[]>(manager, "/api/customers"));
@@ -196,7 +194,15 @@ public sealed class ApiTests
             try
             {
                 Environment.SetEnvironmentVariable(setting, Path.Combine(directory, "integration.db"));
-                return base.CreateHost(builder);
+                var host = base.CreateHost(builder);
+                using var scope = host.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<WorkshopDb>();
+                var salt = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16));
+                var hash = salt + ":" + WorkshopDatabase.Hash(TestPassword, salt);
+                foreach (var user in db.Users)
+                    user.PasswordHash = hash;
+                db.SaveChanges();
+                return host;
             }
             finally
             {

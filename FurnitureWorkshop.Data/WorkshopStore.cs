@@ -41,6 +41,10 @@ public sealed class WorkshopStore(WorkshopDb db, TimeProvider time) : IOrderRepo
         VisibleOrders(user).AsNoTracking().Where(row => row.Id == id)
             .Select(OrderProjection).SingleOrDefaultAsync(ct);
 
+    public Task<List<OrderMetrics>> FindMetrics(UserInfo user, CancellationToken ct) =>
+        VisibleOrders(user).AsNoTracking()
+            .Select(row => new OrderMetrics(row.Status, row.Amount, row.CreatedAt, row.CompletedAt)).ToListAsync(ct);
+
     public Task<List<CustomerInfo>> GetCustomers(CancellationToken ct) => db.Customers.AsNoTracking()
         .OrderBy(customer => customer.Name).ThenBy(customer => customer.Id)
         .Select(customer => new CustomerInfo(customer.Id, customer.Name, customer.Phone, customer.Email)).ToListAsync(ct);
@@ -139,8 +143,7 @@ public sealed class WorkshopStore(WorkshopDb db, TimeProvider time) : IOrderRepo
         order.Title = InputRules.Required(input.Title, "Изделие", 180);
         order.Address = InputRules.Required(input.Address, "Адрес установки", 220);
         order.Notes = InputRules.Optional(input.Notes, "Примечания и размеры", 2000);
-        if (input.Amount is <= 0 or > 999_999_999 || input.Amount is { } amount && amount != decimal.Round(amount, 2))
-            throw new RuleException("Сумма должна быть положительной, до 999 999 999 ₽ и максимум с двумя знаками после запятой.");
+        InputRules.CheckAmount(input.Amount);
 
         if (!await db.Customers.AnyAsync(customer => customer.Id == input.CustomerId, ct))
             throw new RuleException("Выберите существующего заказчика.");

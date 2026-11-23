@@ -5,10 +5,12 @@
 ```powershell
 $env:Workshop__Database = Join-Path ([IO.Path]::GetTempPath()) ("workshop-http-" + [Guid]::NewGuid() + ".db")
 $env:Workshop__SeedDemo = 'true'
+dotnet dev-certs https --trust
+$env:Security__LoginAttemptsPerMinute = '30'
 dotnet run --project FurnitureWorkshop.Api --launch-profile Local
 ```
 
-Выполняйте запросы по порядку. Именованные ответы входа и подготовки заказов используются дальше для подстановки JWT и номера заказа. Swagger UI находится по адресу `http://127.0.0.1:5130/swagger`. В Swagger сначала выполните вход, затем вставьте полученный JWT в окно Authorize.
+Выполняйте запросы по порядку. Именованные ответы входа и подготовки заказов используются дальше для подстановки JWT и номера заказа. Swagger UI находится по адресу `https://localhost:7130/swagger`. В Swagger сначала выполните вход, затем вставьте полученный JWT в окно Authorize.
 
 ## Матрица доступа
 
@@ -51,3 +53,6 @@ dotnet run --project FurnitureWorkshop.Api --launch-profile Local
 | SQLite недоступна для проверки /health | 503 | Сообщение о недоступности базы |
 
 Проверка дефекта входа `UnreadableStoredHashRejectsLoginWithoutServerError` подставляет повреждённый хеш в временной SQLite и ожидает 401. Номер версии заказа защищает от повторной записи по устаревшей карточке. Явная проверка версии находится в модели приложения, EF Core дополнительно проверяет токен конкурентности в SQL при сохранении.
+
+
+В версии 1.0.0 интеграционный набор содержит 15 прогонов xUnit. Добавлены проверки границ полей на уровне HTTP, защиты публичных маршрутов, ответа 429 и отказа /health при отсутствии таблицы.

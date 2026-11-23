@@ -1,4 +1,4 @@
-#requires -Version 7.0
+#requires -Version 7.4
 [CmdletBinding()]
 param()
 
@@ -16,8 +16,42 @@ $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
 $listener.Start()
 $port = $listener.LocalEndpoint.Port
 $listener.Stop()
-$baseUrl = "http://127.0.0.1:$port"
+$baseUrl = "https://127.0.0.1:$port"
 $script:checks = 0
+
+if (-not ('FurnitureWorkshopSmokeTls' -as [type])) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Net.Http;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+
+public static class FurnitureWorkshopSmokeTls
+{
+    public static byte[] Certificate(string path, string password)
+    {
+        using var key = RSA.Create(2048);
+        var request = new CertificateRequest("CN=FurnitureWorkshop smoke", key, HashAlgorithmName.SHA256,
+            RSASignaturePadding.Pkcs1);
+        var san = new SubjectAlternativeNameBuilder();
+        san.AddIpAddress(System.Net.IPAddress.Loopback);
+        request.CertificateExtensions.Add(san.Build());
+        using var certificate = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-1), DateTimeOffset.UtcNow.AddHours(1));
+        System.IO.File.WriteAllBytes(path, certificate.Export(X509ContentType.Pfx, password));
+        return certificate.GetCertHash(HashAlgorithmName.SHA256);
+    }
+
+    public static HttpClient Client(byte[] expected)
+    {
+        var handler = new HttpClientHandler { UseProxy = false, AllowAutoRedirect = false };
+        handler.ServerCertificateCustomValidationCallback = (request, cert, _, _) =>
+            request.RequestUri.Scheme == "https" && request.RequestUri.Host == "127.0.0.1" && cert != null &&
+            CryptographicOperations.FixedTimeEquals(cert.GetCertHash(HashAlgorithmName.SHA256), expected);
+        return new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(6) };
+    }
+}
+'@
+}
 
 function Confirm-Check([bool]$Condition, [string]$Description) {
     if (-not $Condition) { throw "Не пройдена проверка: $Description" }
@@ -27,15 +61,23 @@ function Confirm-Check([bool]$Condition, [string]$Description) {
 
 function Send-Request([string]$Method, [string]$Path, [int]$Expected,
     [string]$Token = '', $Body = $null, [switch]$Csv) {
-    $parameters = @{ Uri = "$baseUrl$Path"; Method = $Method; SkipHttpErrorCheck = $true; NoProxy = $true; TimeoutSec = 6 }
-    if ($Token) { $parameters.Headers = @{ Authorization = "Bearer $Token" } }
-    if ($null -ne $Body) {
-        $parameters.ContentType = if ($Csv) { 'text/csv; charset=utf-8' } else { 'application/json; charset=utf-8' }
-        $parameters.Body = if ($Csv) { $Body } else { $Body | ConvertTo-Json -Depth 6 -Compress }
+    $request = [Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::new($Method), "$baseUrl$Path")
+    try {
+        if ($Token) { $request.Headers.Authorization = [Net.Http.Headers.AuthenticationHeaderValue]::new('Bearer', $Token) }
+        if ($null -ne $Body) {
+            $type = if ($Csv) { 'text/csv' } else { 'application/json' }
+            $payload = if ($Csv) { $Body } else { $Body | ConvertTo-Json -Depth 6 -Compress }
+            $request.Content = [Net.Http.StringContent]::new($payload, [Text.Encoding]::UTF8, $type)
+        }
+        $response = $http.Send($request)
+        try {
+            $status = [int]$response.StatusCode
+            Confirm-Check ($status -eq $Expected) "$Method $Path → $Expected (фактически $status)"
+            return [pscustomobject]@{StatusCode = $status; Content = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()}
+        }
+        finally { $response.Dispose() }
     }
-    $response = Invoke-WebRequest @parameters
-    Confirm-Check ($response.StatusCode -eq $Expected) "$Method $Path → $Expected (фактически $($response.StatusCode))"
-    return $response
+    finally { $request.Dispose() }
 }
 
 function Read-Json($Response) {
@@ -62,15 +104,26 @@ function Set-Stage([int]$Order, [string]$Token, [string]$Status, [int]$Version, 
 }
 
 $process = $null
+$http = $null
 try {
+    $pfx = Join-Path $scratch 'smoke.pfx'
+    $certificatePassword = [Guid]::NewGuid().ToString('N')
+    $http = [FurnitureWorkshopSmokeTls]::Client([FurnitureWorkshopSmokeTls]::Certificate($pfx, $certificatePassword))
     $process = Start-Process dotnet -PassThru -WindowStyle Hidden -ArgumentList @(
         ('"' + $api + '"'), '--urls', $baseUrl, ('"--Workshop:Database=' + $database + '"')
-    ) -RedirectStandardOutput (Join-Path $scratch 'stdout.txt') -RedirectStandardError (Join-Path $scratch 'stderr.txt')
+    ) -Environment @{
+        Kestrel__Certificates__Default__Path = $pfx
+        Kestrel__Certificates__Default__Password = $certificatePassword
+    } -RedirectStandardOutput (Join-Path $scratch 'stdout.txt') -RedirectStandardError (Join-Path $scratch 'stderr.txt')
 
     $ready = $false
     $timeout = [Diagnostics.Stopwatch]::StartNew()
     while (-not $ready -and -not $process.HasExited -and $timeout.Elapsed.TotalSeconds -lt 25) {
-        try { $ready = (Invoke-WebRequest "$baseUrl/health" -NoProxy -TimeoutSec 2).StatusCode -eq 200 }
+        try {
+            $probe = $http.GetAsync("$baseUrl/health").GetAwaiter().GetResult()
+            $ready = $probe.IsSuccessStatusCode
+            $probe.Dispose()
+        }
         catch { Start-Sleep -Milliseconds 220 }
     }
     Confirm-Check ($ready -and (Test-Path -LiteralPath $database -PathType Leaf)) 'живой API и новая SQLite БД'
@@ -167,6 +220,7 @@ catch {
     throw
 }
 finally {
+    if ($null -ne $http) { $http.Dispose() }
     if ($null -ne $process -and -not $process.HasExited) {
         Stop-Process -Id $process.Id
         $process.WaitForExit()

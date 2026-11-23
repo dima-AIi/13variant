@@ -55,6 +55,32 @@ public sealed class LoginFlowTests
         Assert.True(run.LogRotationVerified());
     }
 
+    [Theory]
+    [InlineData("КУХНЯ", "Все статусы", 1)]
+    [InlineData("", "Установлен", 2)]
+    public void SearchAndStatusChangeNumberOfVisibleOrders(string search, string status, int expected)
+    {
+        using var run = new DesktopRun(seedDemo: true);
+        var login = run.Window("Вход — Мебельная мастерская");
+        var password = Environment.GetEnvironmentVariable("WORKSHOP_DEMO_MANAGER_PASSWORD") ??
+            throw new InvalidOperationException("Set WORKSHOP_DEMO_MANAGER_PASSWORD before running UI tests.");
+        SetCredentials(login, "manager", password);
+        Invoke(login, "SignInButton");
+        var workspace = run.Window("Мебельная мастерская");
+        WaitForOrderCount(workspace, 7);
+        Element(workspace, "OrderSearchInput").AsTextBox().Text = search;
+        Element(workspace, "OrderStatusFilter").AsComboBox().Select(status);
+        Invoke(workspace, "RefreshOrdersButton");
+        WaitForOrderCount(workspace, expected);
+    }
+
+    private static void WaitForOrderCount(Window window, int expected)
+    {
+        var count = Element(window, "OrderCount");
+        Assert.True(SpinWait.SpinUntil(() => count.Name == $"Заказов в списке: {expected}",
+            TimeSpan.FromSeconds(18)), $"Ожидается {expected} заказов, получено «{count.Name}».");
+    }
+
     private static void SetCredentials(Window window, string login, string password)
     {
         Element(window, "LoginInput").AsTextBox().Text = login;
@@ -91,13 +117,14 @@ public sealed class LoginFlowTests
         private readonly UIA3Automation automation = new();
         private readonly Process process;
 
-        public DesktopRun()
+        public DesktopRun(bool seedDemo = false)
         {
             var testOutput = new DirectoryInfo(AppContext.BaseDirectory);
             var root = testOutput;
             while (root is not null && !File.Exists(Path.Combine(root.FullName, "FurnitureWorkshop.slnx")))
                 root = root.Parent;
-            var executable = Path.Combine(root?.FullName ?? throw new InvalidOperationException("Решение не найдено."),
+            var executable = Environment.GetEnvironmentVariable("WORKSHOP_UI_EXECUTABLE") ??
+                Path.Combine(root?.FullName ?? throw new InvalidOperationException("Решение не найдено."),
                 "FurnitureWorkshop.Desktop", "bin", testOutput.Parent!.Name, "net10.0-windows",
                 "FurnitureWorkshop.Desktop.exe");
             var start = new ProcessStartInfo(executable)
@@ -105,6 +132,7 @@ public sealed class LoginFlowTests
                 UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(executable)!
             };
             start.Environment["Workshop__Database"] = Path.Combine(directory, "ui.db");
+            start.Environment["Workshop__SeedDemo"] = seedDemo ? "true" : "false";
             var logs = Path.Combine(directory, "logs");
             Directory.CreateDirectory(logs);
             WriteOldLog(logs, "desktop-20200101.log");
