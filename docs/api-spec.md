@@ -6,7 +6,7 @@
 
 | Метод и маршрут | Доступ | Запрос | Успех | Основные отказы |
 |---|---|---|---|---|
-| GET /health | Все | — | 200, status | 503 |
+| GET /health | Все | — | 200, {"status":"ok"} | 503, ProblemDetails «База данных недоступна» |
 | POST /api/auth/login | Все | login, password | 200, token и user | 400, 401, 429 |
 | GET /api/auth/me | А, М, С | — | 200, данные пользователя | 401 |
 | POST /api/auth/logout | А, М, С | — | 204 | 401 |
