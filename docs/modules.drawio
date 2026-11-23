@@ -1,0 +1,71 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net">
+  <diagram name="modules" id="modules">
+    <mxGraphModel page="1" pageWidth="1160" pageHeight="425">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="edge1" edge="1" parent="1" source="desktop" target="api" value="REST · HTTP/JSON" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#476855;dashed=1;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge2" edge="1" parent="1" source="api" target="data" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#476855;dashed=1;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge3" edge="1" parent="1" source="api" target="core" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#476855;dashed=1;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge4" edge="1" parent="1" source="desktop" target="core" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#476855;dashed=1;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="350" y="128" />
+              <mxPoint x="350" y="320" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge5" edge="1" parent="1" source="data" target="core" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#476855;dashed=1;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="812" y="128" />
+              <mxPoint x="812" y="321" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge6" edge="1" parent="1" source="ui" target="desktop" value="Запуск Desktop.exe" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#476855;dashed=1;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge7" edge="1" parent="1" source="tests" target="core" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#476855;dashed=1;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge8" edge="1" parent="1" source="tests" target="api" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#476855;dashed=1;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="935" y="223" />
+              <mxPoint x="638" y="223" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="desktop" value="Desktop&lt;br&gt;Клиент WPF" vertex="1" parent="1" style="whiteSpace=wrap;html=1;fillColor=#e8eff4;strokeColor=#486858;fontSize=15;shape=component;align=left;spacingLeft=25;">
+          <mxGeometry as="geometry" x="35" y="70" width="240" height="68" />
+        </mxCell>
+        <mxCell id="api" value="Api&lt;br&gt;ASP.NET Core" vertex="1" parent="1" style="whiteSpace=wrap;html=1;fillColor=#e8eff4;strokeColor=#486858;fontSize=15;shape=component;align=left;spacingLeft=25;">
+          <mxGeometry as="geometry" x="465" y="70" width="240" height="68" />
+        </mxCell>
+        <mxCell id="data" value="Data&lt;br&gt;EF Core и SQLite" vertex="1" parent="1" style="whiteSpace=wrap;html=1;fillColor=#e8eff4;strokeColor=#486858;fontSize=15;shape=component;align=left;spacingLeft=25;">
+          <mxGeometry as="geometry" x="895" y="70" width="240" height="68" />
+        </mxCell>
+        <mxCell id="ui" value="UiTests&lt;br&gt;FlaUI" vertex="1" parent="1" style="whiteSpace=wrap;html=1;fillColor=#e8eff4;strokeColor=#486858;fontSize=15;shape=component;align=left;spacingLeft=25;">
+          <mxGeometry as="geometry" x="35" y="300" width="240" height="68" />
+        </mxCell>
+        <mxCell id="core" value="Core&lt;br&gt;Модель и правила" vertex="1" parent="1" style="whiteSpace=wrap;html=1;fillColor=#e8eff4;strokeColor=#486858;fontSize=15;shape=component;align=left;spacingLeft=25;">
+          <mxGeometry as="geometry" x="465" y="300" width="240" height="68" />
+        </mxCell>
+        <mxCell id="tests" value="Tests&lt;br&gt;xUnit" vertex="1" parent="1" style="whiteSpace=wrap;html=1;fillColor=#e8eff4;strokeColor=#486858;fontSize=15;shape=component;align=left;spacingLeft=25;">
+          <mxGeometry as="geometry" x="895" y="300" width="240" height="68" />
+        </mxCell>
+        <mxCell id="legend" value="Desktop также ссылается на Api в текущей версии для запуска встроенного хоста." vertex="1" parent="1" style="text;html=1;align=left;fontSize=15;">
+          <mxGeometry as="geometry" x="20" y="380" width="1120" height="35" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,41 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net">
+  <diagram name="classes" id="classes">
+    <mxGraphModel page="1" pageWidth="1160" pageHeight="545">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="edge1" edge="1" parent="1" source="customer" target="order" value="1 к 0..*" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#476855;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge2" edge="1" parent="1" source="user" target="order" value="0..1 к 0..*" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#476855;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge3" edge="1" parent="1" source="order" target="status" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#476855;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge4" edge="1" parent="1" source="user" target="role" value="Проект" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#476855;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="customer" value="Customer&lt;br&gt;Id: int&lt;br&gt;Name: string&lt;br&gt;Phone: string&lt;br&gt;Email: string" vertex="1" parent="1" style="whiteSpace=wrap;html=1;fillColor=#f4f7f4;strokeColor=#486858;fontSize=15;align=left;spacingLeft=10;">
+          <mxGeometry as="geometry" x="24" y="46" width="272" height="156" />
+        </mxCell>
+        <mxCell id="order" value="FurnitureOrder&lt;br&gt;Id, CustomerId, Version: int&lt;br&gt;Title, Address, Notes: string&lt;br&gt;AssemblerId: int?&lt;br&gt;Status: OrderStatus&lt;br&gt;Amount: decimal?&lt;br&gt;DeliveryDate: DateOnly?&lt;br&gt;CancellationReason: string?&lt;br&gt;CreatedAt: DateTime&lt;br&gt;CompletedAt: DateTime?" vertex="1" parent="1" style="whiteSpace=wrap;html=1;fillColor=#f4f7f4;strokeColor=#486858;fontSize=15;align=left;spacingLeft=10;">
+          <mxGeometry as="geometry" x="403" y="46" width="353" height="375" />
+        </mxCell>
+        <mxCell id="user" value="WorkshopUser&lt;br&gt;Id: int&lt;br&gt;Login, DisplayName: string&lt;br&gt;Role: string&lt;br&gt;PasswordHash: string" vertex="1" parent="1" style="whiteSpace=wrap;html=1;fillColor=#f4f7f4;strokeColor=#486858;fontSize=15;align=left;spacingLeft=10;">
+          <mxGeometry as="geometry" x="864" y="46" width="272" height="177" />
+        </mxCell>
+        <mxCell id="status" value="OrderStatus&lt;br&gt;Measurement, Design&lt;br&gt;Manufacturing, Delivery&lt;br&gt;Installed, Cancelled" vertex="1" parent="1" style="whiteSpace=wrap;html=1;fillColor=#fff4dc;strokeColor=#486858;fontSize=15;align=left;spacingLeft=10;">
+          <mxGeometry as="geometry" x="24" y="293" width="272" height="185" />
+        </mxCell>
+        <mxCell id="role" value="UserRole  ·  проект&lt;br&gt;Admin&lt;br&gt;Manager&lt;br&gt;Assembler" vertex="1" parent="1" style="whiteSpace=wrap;html=1;fillColor=#fff4dc;strokeColor=#486858;fontSize=15;align=left;spacingLeft=10;">
+          <mxGeometry as="geometry" x="864" y="322" width="272" height="156" />
+        </mxCell>
+        <mxCell id="legend" value="UserRole — проектируемый тип. В действующем коде WorkshopUser.Role хранится как строка." vertex="1" parent="1" style="text;html=1;align=left;fontSize=15;">
+          <mxGeometry as="geometry" x="20" y="500" width="1120" height="35" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

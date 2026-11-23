@@ -1,0 +1,76 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net">
+  <diagram name="lifecycle" id="lifecycle">
+    <mxGraphModel page="1" pageWidth="1160" pageHeight="427">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="edge1" edge="1" parent="1" source="m" target="p" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#476855;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge2" edge="1" parent="1" source="p" target="f" value="Есть сборщик" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#476855;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge3" edge="1" parent="1" source="f" target="d" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#476855;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge4" edge="1" parent="1" source="d" target="i" value="Сумма и дата" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#476855;">
+          <mxGeometry as="geometry" relative="1" />
+        </mxCell>
+        <mxCell id="edge5" edge="1" parent="1" source="m" target="c" value="Причина отмены" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#995347;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="106" y="230" />
+              <mxPoint x="510" y="230" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge6" edge="1" parent="1" source="p" target="c" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#995347;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="341" y="253" />
+              <mxPoint x="540" y="253" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge7" edge="1" parent="1" source="f" target="c" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#995347;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="576" y="270" />
+              <mxPoint x="576" y="270" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge8" edge="1" parent="1" source="d" target="c" value="" style="edgeStyle=none;html=1;endArrow=block;endFill=1;strokeColor=#995347;">
+          <mxGeometry as="geometry" relative="1">
+            <Array as="points">
+              <mxPoint x="811" y="235" />
+              <mxPoint x="636" y="235" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m" value="Замер" vertex="1" parent="1" style="whiteSpace=wrap;html=1;fillColor=#e7f0e9;strokeColor=#486858;fontSize=15;rounded=1;">
+          <mxGeometry as="geometry" x="30" y="105" width="152" height="64" />
+        </mxCell>
+        <mxCell id="p" value="Проект" vertex="1" parent="1" style="whiteSpace=wrap;html=1;fillColor=#e7f0e9;strokeColor=#486858;fontSize=15;rounded=1;">
+          <mxGeometry as="geometry" x="265" y="105" width="152" height="64" />
+        </mxCell>
+        <mxCell id="f" value="Изготовление" vertex="1" parent="1" style="whiteSpace=wrap;html=1;fillColor=#e7f0e9;strokeColor=#486858;fontSize=15;rounded=1;">
+          <mxGeometry as="geometry" x="500" y="105" width="152" height="64" />
+        </mxCell>
+        <mxCell id="d" value="Доставка" vertex="1" parent="1" style="whiteSpace=wrap;html=1;fillColor=#e7f0e9;strokeColor=#486858;fontSize=15;rounded=1;">
+          <mxGeometry as="geometry" x="735" y="105" width="152" height="64" />
+        </mxCell>
+        <mxCell id="i" value="Установлен" vertex="1" parent="1" style="whiteSpace=wrap;html=1;fillColor=#d2e8d8;strokeColor=#486858;fontSize=15;rounded=1;">
+          <mxGeometry as="geometry" x="970" y="105" width="152" height="64" />
+        </mxCell>
+        <mxCell id="c" value="Отменён" vertex="1" parent="1" style="whiteSpace=wrap;html=1;fillColor=#f2e3df;strokeColor=#486858;fontSize=15;rounded=1;">
+          <mxGeometry as="geometry" x="492" y="310" width="165" height="60" />
+        </mxCell>
+        <mxCell id="legend" value="Установлен и Отменён — конечные статусы. Все стрелки к отмене требуют причины." vertex="1" parent="1" style="text;html=1;align=left;fontSize=15;">
+          <mxGeometry as="geometry" x="20" y="382" width="1120" height="35" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
