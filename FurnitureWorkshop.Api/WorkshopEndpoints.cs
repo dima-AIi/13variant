@@ -3,7 +3,6 @@ using System.Security.Claims;
 using System.Text;
 using FurnitureWorkshop.Core;
 using FurnitureWorkshop.Data;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 
@@ -26,43 +25,12 @@ internal static class WorkshopEndpoints
             return Results.NoContent();
         }).RequireAuthorization();
 
-        var customers = app.MapGroup("/api/customers").WithTags("Заказчики").RequireAuthorization("Staff");
-        customers.MapGet("", (WorkshopStore store, CancellationToken ct) => store.GetCustomers(ct));
-        customers.MapPost("", async (CustomerInput input, WorkshopStore store, CancellationToken ct) =>
-        {
-            int id = await store.CreateCustomer(input, ct);
-            return Results.Created("/api/customers", new { id });
-        });
-        customers.MapPut("/{id:int}", async (int id, CustomerInput input, WorkshopStore store, CancellationToken ct) =>
-            await store.UpdateCustomer(id, input, ct) ? Results.NoContent() : Results.NotFound());
-        customers.MapPost("/import", Import).Accepts<string>("text/csv");
-
-        app.MapGet("/api/users/assemblers", (WorkshopStore store, CancellationToken ct) => store.GetUsers(true, ct))
-            .WithTags("Пользователи").RequireAuthorization("Staff");
-        app.MapGet("/api/users", (WorkshopStore store, CancellationToken ct) => store.GetUsers(false, ct))
-            .WithTags("Пользователи").RequireAuthorization(new AuthorizeAttribute { Roles = Roles.Admin });
-
-        var orders = app.MapGroup("/api/orders").WithTags("Заказы").RequireAuthorization();
-        orders.MapGet("", (OrderStatus? status, string? q, ClaimsPrincipal user, WorkshopStore store, CancellationToken ct) =>
-            store.FindOrders(SessionTokens.User(user), status, q, ct));
-        orders.MapGet("/{id:int}", async (int id, ClaimsPrincipal user, WorkshopStore store, CancellationToken ct) =>
-            await store.FindOrder(id, SessionTokens.User(user), ct) is { } row ? Results.Ok(row) : Results.NotFound());
-        orders.MapPost("", async (OrderInput input, WorkshopStore store, CancellationToken ct) =>
-        {
-            int id = await store.CreateOrder(input, ct);
-            return Results.Created($"/api/orders/{id}", new { id });
-        }).RequireAuthorization("Staff");
-        orders.MapPut("/{id:int}", async (int id, OrderInput input, WorkshopStore store, CancellationToken ct) =>
-            await store.UpdateOrder(id, input, ct) ? Results.NoContent() : Results.NotFound()).RequireAuthorization("Staff");
-        orders.MapPost("/{id:int}/transition", async (int id, TransitionInput input, ClaimsPrincipal user,
-            WorkshopStore store, CancellationToken ct) =>
-            await store.Transition(id, SessionTokens.User(user), input, ct) ? Results.NoContent() : Results.NotFound());
-        orders.MapGet("/statistics", async (ClaimsPrincipal user, WorkshopStore store, CancellationToken ct) =>
-            OrderRules.Statistics(await store.FindOrders(SessionTokens.User(user), null, null, ct)));
-        orders.MapGet("/export/{format}", Export).RequireAuthorization("Staff");
+        app.MapPost("/api/customers/import", Import).WithTags("Заказчики")
+            .RequireAuthorization("Staff").Accepts<string>("text/csv");
+        app.MapGet("/api/orders/export/{format}", Export).WithTags("Заказы").RequireAuthorization("Staff");
     }
 
-    private static async Task<IResult> Login(LoginInput input, WorkshopDb db, SessionTokens tokens,
+    private static async Task<IResult> Login(LoginInput input, IUserRepository users, SessionTokens tokens,
         ILogger<SessionTokens> logger, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(input.Login) || input.Login.Length > 80 ||
@@ -70,7 +38,7 @@ internal static class WorkshopEndpoints
             return Results.Unauthorized();
 
         string login = input.Login.Trim().ToLowerInvariant();
-        var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(row => row.Login == login, ct);
+        var user = await users.FindUser(login, ct);
         const string dummyHash = "00000000000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000";
         if (!WorkshopDatabase.Verify(input.Password, user?.PasswordHash ?? dummyHash) || user is null)
         {
@@ -83,7 +51,8 @@ internal static class WorkshopEndpoints
         return Results.Ok(new LoginResult(tokens.Issue(result), result));
     }
 
-    private static async Task<IResult> Import(HttpRequest request, WorkshopStore store, CancellationToken ct)
+    private static async Task<IResult> Import(HttpRequest request, ICustomerRepository store,
+        ClaimsPrincipal user, ILogger<ICustomerRepository> logger, CancellationToken ct)
     {
         if (request.ContentLength > WorkshopFiles.MaxImportBytes)
             return Results.Problem(statusCode: 413, title: "Размер CSV превышает 1 МБ.");
@@ -102,7 +71,10 @@ internal static class WorkshopEndpoints
             try
             {
                 var csv = new UTF8Encoding(false, true).GetString(buffer.GetBuffer(), 0, (int)buffer.Length);
-                return Results.Ok(new ImportResult(await store.ImportCustomers(csv, ct)));
+                int imported = await store.ImportCustomers(csv, ct);
+                logger.LogInformation("Пользователем {UserId} импортировано заказчиков: {ImportedCount}",
+                    SessionTokens.User(user).Id, imported);
+                return Results.Ok(new ImportResult(imported));
             }
             catch (DecoderFallbackException)
             {
@@ -116,7 +88,7 @@ internal static class WorkshopEndpoints
     }
 
     private static async Task<IResult> Export(string format, OrderStatus? status, string? q,
-        ClaimsPrincipal user, WorkshopStore store, CancellationToken ct)
+        ClaimsPrincipal user, IOrderRepository store, CancellationToken ct)
     {
         format = format.ToLowerInvariant();
         var result = WorkshopFiles.Export(format, await store.FindOrders(SessionTokens.User(user), status, q, ct));

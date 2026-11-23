@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FurnitureWorkshop.Data;
 
-public sealed class WorkshopStore(WorkshopDb db, TimeProvider time)
+public sealed class WorkshopStore(WorkshopDb db, TimeProvider time) : IOrderRepository, ICustomerRepository, IUserRepository
 {
     private static readonly Expression<Func<FurnitureOrder, OrderInfo>> OrderProjection = row =>
         new OrderInfo(row.Id, row.CustomerId, row.Customer.Name, row.Customer.Phone, row.Title,
@@ -49,6 +49,9 @@ public sealed class WorkshopStore(WorkshopDb db, TimeProvider time)
         db.Users.AsNoTracking().Where(user => !assemblersOnly || user.Role == Roles.Assembler)
             .OrderBy(user => user.Id)
             .Select(user => new UserInfo(user.Id, user.Login, user.DisplayName, user.Role)).ToListAsync(ct);
+
+    public Task<WorkshopUser?> FindUser(string login, CancellationToken ct) =>
+        db.Users.AsNoTracking().SingleOrDefaultAsync(user => user.Login == login, ct);
 
     public async Task<int> CreateCustomer(CustomerInput input, CancellationToken ct)
     {
@@ -125,11 +128,11 @@ public sealed class WorkshopStore(WorkshopDb db, TimeProvider time)
         if (version is null)
             throw new RuleException("Укажите версию заказа.");
         if (order.Version != version)
-            throw new DbUpdateConcurrencyException();
+            throw new OrderConflictException();
     }
 
-    private static Customer NewCustomer(CustomerInput input) =>
-        new() { Name = input.Name, Phone = input.Phone, Email = input.Email! };
+    private Customer NewCustomer(CustomerInput input) =>
+        new() { Name = input.Name, Phone = input.Phone, Email = input.Email!, RegisteredAt = time.GetUtcNow().UtcDateTime };
 
     private async Task SetDetails(FurnitureOrder order, OrderInput input, CancellationToken ct)
     {

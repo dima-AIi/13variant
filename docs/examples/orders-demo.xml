@@ -1,0 +1,128 @@
+<Orders>
+  <Order>
+    <Id>7</Id>
+    <CustomerId>1</CustomerId>
+    <Customer>Анна Белова</Customer>
+    <Phone>+7 000 000-01-01</Phone>
+    <Title>Полка под книги</Title>
+    <Address>Учебный адрес, дом 7</Address>
+    <Notes></Notes>
+    <AssemblerId />
+    <Assembler />
+    <Status>Cancelled</Status>
+    <Amount />
+    <DeliveryDate />
+    <CancellationReason>Заказчик изменил планы</CancellationReason>
+    <CreatedAt>2026-11-14T09:00:00.0000000Z</CreatedAt>
+    <CompletedAt />
+    <Version>1</Version>
+  </Order>
+  <Order>
+    <Id>6</Id>
+    <CustomerId>3</CustomerId>
+    <Customer>Мария Соколова</Customer>
+    <Phone>+7 000 000-01-03</Phone>
+    <Title>Кухня с островом</Title>
+    <Address>Учебный адрес, дом 6</Address>
+    <Notes></Notes>
+    <AssemblerId>4</AssemblerId>
+    <Assembler>Павел</Assembler>
+    <Status>Installed</Status>
+    <Amount>156000.0</Amount>
+    <DeliveryDate>2026-12-02</DeliveryDate>
+    <CancellationReason />
+    <CreatedAt>2026-11-13T09:00:00.0000000Z</CreatedAt>
+    <CompletedAt>2026-12-02T09:00:00.0000000Z</CompletedAt>
+    <Version>1</Version>
+  </Order>
+  <Order>
+    <Id>5</Id>
+    <CustomerId>2</CustomerId>
+    <Customer>Роман Орлов</Customer>
+    <Phone>+7 000 000-01-02</Phone>
+    <Title>Угловой шкаф</Title>
+    <Address>Учебный адрес, дом 5</Address>
+    <Notes></Notes>
+    <AssemblerId>3</AssemblerId>
+    <Assembler>Иван</Assembler>
+    <Status>Installed</Status>
+    <Amount>124200.0</Amount>
+    <DeliveryDate>2026-11-28</DeliveryDate>
+    <CancellationReason />
+    <CreatedAt>2026-11-12T09:00:00.0000000Z</CreatedAt>
+    <CompletedAt>2026-11-28T09:00:00.0000000Z</CompletedAt>
+    <Version>1</Version>
+  </Order>
+  <Order>
+    <Id>4</Id>
+    <CustomerId>1</CustomerId>
+    <Customer>Анна Белова</Customer>
+    <Phone>+7 000 000-01-01</Phone>
+    <Title>Обеденный стол</Title>
+    <Address>Учебный адрес, дом 4</Address>
+    <Notes></Notes>
+    <AssemblerId>4</AssemblerId>
+    <Assembler>Павел</Assembler>
+    <Status>Delivery</Status>
+    <Amount>42900.0</Amount>
+    <DeliveryDate>2026-11-22</DeliveryDate>
+    <CancellationReason />
+    <CreatedAt>2026-11-11T09:00:00.0000000Z</CreatedAt>
+    <CompletedAt />
+    <Version>1</Version>
+  </Order>
+  <Order>
+    <Id>3</Id>
+    <CustomerId>3</CustomerId>
+    <Customer>Мария Соколова</Customer>
+    <Phone>+7 000 000-01-03</Phone>
+    <Title>Кухонный гарнитур</Title>
+    <Address>Учебный адрес, дом 3</Address>
+    <Notes></Notes>
+    <AssemblerId>4</AssemblerId>
+    <Assembler>Павел</Assembler>
+    <Status>Manufacturing</Status>
+    <Amount>192000.0</Amount>
+    <DeliveryDate />
+    <CancellationReason />
+    <CreatedAt>2026-11-10T09:00:00.0000000Z</CreatedAt>
+    <CompletedAt />
+    <Version>1</Version>
+  </Order>
+  <Order>
+    <Id>2</Id>
+    <CustomerId>2</CustomerId>
+    <Customer>Роман Орлов</Customer>
+    <Phone>+7 000 000-01-02</Phone>
+    <Title>Шкаф в прихожую</Title>
+    <Address>Учебный адрес, дом 2</Address>
+    <Notes></Notes>
+    <AssemblerId>3</AssemblerId>
+    <Assembler>Иван</Assembler>
+    <Status>Design</Status>
+    <Amount>78000.0</Amount>
+    <DeliveryDate />
+    <CancellationReason />
+    <CreatedAt>2026-11-09T09:00:00.0000000Z</CreatedAt>
+    <CompletedAt />
+    <Version>1</Version>
+  </Order>
+  <Order>
+    <Id>1</Id>
+    <CustomerId>1</CustomerId>
+    <Customer>Анна Белова</Customer>
+    <Phone>+7 000 000-01-01</Phone>
+    <Title>Стеллаж в гостиную</Title>
+    <Address>Учебный адрес, дом 1</Address>
+    <Notes></Notes>
+    <AssemblerId />
+    <Assembler />
+    <Status>Measurement</Status>
+    <Amount />
+    <DeliveryDate />
+    <CancellationReason />
+    <CreatedAt>2026-11-08T09:00:00.0000000Z</CreatedAt>
+    <CompletedAt />
+    <Version>1</Version>
+  </Order>
+</Orders>

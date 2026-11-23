@@ -117,6 +117,7 @@ internal sealed class WorkspaceViewModel : AsyncViewModel
             if (dialogs.Transition(order) is not { } input)
                 return;
             await api.Transition(order.Id, input);
+            ClientLog.Info($"Заказ {order.Id}: переход в {input.Status}");
             await LoadOrders(order.Id);
             Message = $"Заказ №{order.Id} переведён в статус «{WorkshopText.Status(input.Status)}».";
         }, () => SelectedOrder is { } row && !OrderRules.IsFinal(row.Order.Status));
@@ -129,9 +130,19 @@ internal sealed class WorkspaceViewModel : AsyncViewModel
                 return;
             if (new FileInfo(path).Length > WorkshopFiles.MaxImportBytes)
                 throw new RuleException("Размер CSV превышает 1 МБ.");
-            var result = await api.Import(await File.ReadAllBytesAsync(path));
-            await LoadCustomers();
-            Message = $"Импортировано заказчиков: {result.Imported}.";
+            try
+            {
+                var result = await api.Import(await File.ReadAllBytesAsync(path));
+                await LoadCustomers();
+                ClientLog.Info($"Импортировано заказчиков: {result.Imported}");
+                Message = $"Импортировано заказчиков: {result.Imported}.";
+            }
+            catch (CsvImportException error)
+            {
+                ClientLog.Warning($"Отклонён CSV: ошибок {error.Errors.Count}");
+                dialogs.ShowImportErrors(error.Errors);
+                Message = $"Импорт отклонён. Ошибок: {error.Errors.Count}.";
+            }
         }, () => IsStaff);
         Export = Run(async selectedFormat =>
         {

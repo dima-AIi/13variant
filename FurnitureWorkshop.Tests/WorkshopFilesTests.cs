@@ -25,7 +25,7 @@ public sealed class WorkshopFilesTests
     [InlineData("Name,Phone,Email\n\"незакрытая кавычка,123,")]
     [InlineData("Name,Phone,Email")]
     public void RejectsInvalidCsv(string input) =>
-        Assert.Throws<RuleException>(() => WorkshopFiles.ReadCustomers(input));
+        Assert.ThrowsAny<RuleException>(() => WorkshopFiles.ReadCustomers(input));
 
     [Fact]
     public void ExportsThreeReadableFormats()

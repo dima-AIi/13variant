@@ -1,10 +1,7 @@
-using System.Diagnostics;
-using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text;
 using System.Text.Json;
 using FurnitureWorkshop.Core;
 
@@ -101,6 +98,13 @@ internal sealed class WorkshopClient(HttpClient http)
 
         using (response)
         {
+            if (path == "api/customers/import" && response.StatusCode == HttpStatusCode.BadRequest)
+            {
+                var report = await response.Content.ReadFromJsonAsync<CsvProblem>(WorkshopFiles.JsonOptions);
+                if (report?.Errors is { Length: > 0 } errors)
+                    throw new CsvImportException(errors);
+                throw new ClientException(report?.Detail ?? report?.Title ?? "Не удалось прочитать CSV.");
+            }
             var message = response.StatusCode switch
             {
                 HttpStatusCode.Unauthorized when path == "api/auth/login" => "Неверный логин или пароль.",
@@ -139,28 +143,8 @@ internal sealed class WorkshopClient(HttpClient http)
         return $"{path}?q={Uri.EscapeDataString(search?.Trim() ?? "")}" +
             (status is null ? "" : $"&status={status}");
     }
+
+    private sealed record CsvProblem(string? Title, string? Detail, CsvRowError[]? Errors);
 }
 
 internal sealed class ClientException(string message) : Exception(message);
-
-internal static class ClientLog
-{
-    public static void Write(Exception error)
-    {
-        try
-        {
-            var path = Environment.GetEnvironmentVariable("Workshop__Database");
-            var basePath = string.IsNullOrWhiteSpace(path)
-                ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FurnitureWorkshop")
-                : Path.GetDirectoryName(Path.GetFullPath(path))!;
-            var directory = Path.Combine(basePath, "logs");
-            Directory.CreateDirectory(directory);
-            File.AppendAllText(Path.Combine(directory, $"desktop-{DateTime.Now:yyyyMMdd}.log"),
-                $"{DateTimeOffset.Now:O} {error}{Environment.NewLine}", Encoding.UTF8);
-        }
-        catch (Exception writeError) when (writeError is IOException or UnauthorizedAccessException)
-        {
-            Trace.WriteLine(writeError);
-        }
-    }
-}

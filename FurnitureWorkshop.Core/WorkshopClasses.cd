@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ClassDiagram MajorVersion="1" MinorVersion="1">
+  <Class Name="FurnitureWorkshop.Core.FurnitureOrder">
+    <Position X="3.5" Y="0.5" Width="2.75" />
+    <TypeIdentifier><FileName>WorkshopModel.cs</FileName></TypeIdentifier>
+    <ShowAsAssociation><Property Name="Customer" /><Property Name="Assembler" /></ShowAsAssociation>
+  </Class>
+  <Class Name="FurnitureWorkshop.Core.Customer">
+    <Position X="0.5" Y="0.5" Width="2.25" />
+    <TypeIdentifier><FileName>WorkshopModel.cs</FileName></TypeIdentifier>
+  </Class>
+  <Class Name="FurnitureWorkshop.Core.WorkshopUser">
+    <Position X="7" Y="0.5" Width="2.25" />
+    <TypeIdentifier><FileName>WorkshopModel.cs</FileName></TypeIdentifier>
+  </Class>
+  <Enum Name="FurnitureWorkshop.Core.OrderStatus">
+    <Position X="0.5" Y="3.25" Width="2.25" />
+    <TypeIdentifier><FileName>WorkshopModel.cs</FileName></TypeIdentifier>
+  </Enum>
+  <Enum Name="FurnitureWorkshop.Core.UserRole">
+    <Position X="7" Y="3.25" Width="2.25" />
+    <TypeIdentifier><FileName>WorkshopModel.cs</FileName></TypeIdentifier>
+  </Enum>
+  <Font Name="Segoe UI" Size="9" />
+</ClassDiagram>
