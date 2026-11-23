@@ -30,6 +30,9 @@ public sealed class LoginFlowTests
         Assert.Equal(admin, Visible(workspace, "UsersTab"));
         Assert.True(Visible(workspace, "OrdersTab"));
         Assert.True(Visible(workspace, "StatisticsTab"));
+        Assert.True(Visible(workspace, "OrderSearchInput"));
+        Assert.True(Visible(workspace, "OrderStatusFilter"));
+        Assert.True(Visible(workspace, "RefreshOrdersButton"));
 
         Invoke(workspace, "LogoutButton");
         var returned = run.Window("Вход — Мебельная мастерская");
@@ -49,6 +52,7 @@ public sealed class LoginFlowTests
             () => Element(window, "LoginMessage").Name == "Неверный логин или пароль.",
             TimeSpan.FromSeconds(18)), "Окно входа не показало сообщение о неверном пароле.");
         Assert.True(Visible(window, "SignInButton"));
+        Assert.True(run.LogRotationVerified());
     }
 
     private static void SetCredentials(Window window, string login, string password)
@@ -101,8 +105,24 @@ public sealed class LoginFlowTests
                 UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(executable)!
             };
             start.Environment["Workshop__Database"] = Path.Combine(directory, "ui.db");
+            var logs = Path.Combine(directory, "logs");
+            Directory.CreateDirectory(logs);
+            WriteOldLog(logs, "desktop-20200101.log");
+            WriteOldLog(logs, "api-20200101.log");
             process = Process.Start(start) ?? throw new InvalidOperationException("WPF не запустился.");
         }
+
+        private static void WriteOldLog(string directory, string name)
+        {
+            var path = Path.Combine(directory, name);
+            File.WriteAllText(path, "Старый журнал");
+            File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddDays(-15));
+        }
+
+        public bool LogRotationVerified() =>
+            !File.Exists(Path.Combine(directory, "logs", "desktop-20200101.log")) &&
+            File.Exists(Path.Combine(directory, "logs", "api-20200101.log")) &&
+            ReadLog().Contains("[WRN] Действие отклонено", StringComparison.Ordinal);
 
         public Window Window(string title)
         {

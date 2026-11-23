@@ -56,6 +56,7 @@ internal abstract class AsyncViewModel : ViewModel
             }
             catch (Exception error) when (error is ClientException or RuleException)
             {
+                ClientLog.Warning("Действие отклонено");
                 Message = error.Message;
             }
             catch (Exception error)
@@ -95,7 +96,9 @@ internal sealed class LoginViewModel : AsyncViewModel
                 throw new ClientException("Локальный сервер не запустился. Проверьте журнал приложения.");
             }
 
-            signedIn(api, await api.Login(Login, password));
+            var result = await api.Login(Login, password);
+            ClientLog.Info($"Начат сеанс пользователя {result.User.Id}, роль {result.User.Role}");
+            signedIn(api, result);
         });
     }
 }

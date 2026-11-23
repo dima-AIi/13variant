@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Security.Claims;
 using System.Threading.RateLimiting;
 using FurnitureWorkshop.Core;
 using FurnitureWorkshop.Data;
@@ -8,6 +9,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using Serilog;
 
 namespace FurnitureWorkshop.Api;
@@ -28,14 +30,35 @@ public static class WorkshopHost
             builder.WebHost.UseUrls("http://127.0.0.1:5130");
 
         var path = DatabasePath(builder.Configuration);
-        builder.Services.AddDbContext<WorkshopDb>(options => WorkshopDatabase.Configure(options, path));
+        bool seedDemo = builder.Configuration.GetValue<bool?>("Workshop:SeedDemo") ??
+            (desktop && builder.Configuration["Workshop:Database"] is null);
+        builder.Services.AddDbContext<WorkshopDb>(options => WorkshopDatabase.Configure(options, path, seedDemo));
         builder.Services.AddScoped<WorkshopStore>();
+        builder.Services.AddScoped<IOrderRepository>(services => services.GetRequiredService<WorkshopStore>());
+        builder.Services.AddScoped<ICustomerRepository>(services => services.GetRequiredService<WorkshopStore>());
+        builder.Services.AddScoped<IUserRepository>(services => services.GetRequiredService<WorkshopStore>());
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddMemoryCache();
         builder.Services.AddDataProtection().UseEphemeralDataProtectionProvider();
         builder.Services.AddProblemDetails();
         builder.Services.AddEndpointsApiExplorer();
-        builder.Services.AddSwaggerGen();
+        builder.Services.AddSwaggerGen(options =>
+        {
+            const string bearer = "Bearer";
+            options.AddSecurityDefinition(bearer, new OpenApiSecurityScheme
+            {
+                Type = SecuritySchemeType.Http, Scheme = "bearer", BearerFormat = "JWT"
+            });
+            options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+            {
+                [new OpenApiSecuritySchemeReference(bearer, document)] = []
+            });
+        });
+        builder.Services.AddControllers().AddJsonOptions(options =>
+        {
+            foreach (var converter in WorkshopFiles.JsonOptions.Converters)
+                options.JsonSerializerOptions.Converters.Add(converter);
+        });
         builder.Services.ConfigureHttpJsonOptions(options =>
         {
             foreach (var converter in WorkshopFiles.JsonOptions.Converters)
@@ -90,14 +113,20 @@ public static class WorkshopHost
                 rollingInterval: RollingInterval.Day, retainedFileCountLimit: 7, shared: true));
 
         var app = builder.Build();
-        app.UseExceptionHandler(handler => handler.Run(HandleError));
         app.UseSerilogRequestLogging();
+        app.UseExceptionHandler(handler => handler.Run(HandleError));
+        app.UseStatusCodePages();
         app.UseSwagger();
         app.UseSwaggerUI();
         app.UseRateLimiter();
         app.UseAuthentication();
         app.UseAuthorization();
+        app.MapControllers();
         app.MapWorkshopEndpoints();
+        if (app.Environment.IsDevelopment())
+            app.MapGet("/api/debug/requests", (ClaimsPrincipal user, IOrderRepository orders, CancellationToken ct) =>
+                orders.FindOrders(SessionTokens.User(user), null, null, ct))
+                .RequireAuthorization(policy => policy.RequireRole(Roles.Admin));
         return app;
     }
 
@@ -116,9 +145,11 @@ public static class WorkshopHost
         var error = context.Features.Get<IExceptionHandlerFeature>()?.Error;
         return (error switch
         {
+            CsvImportException csv => Results.Problem(statusCode: 400, title: "Ошибка импорта CSV",
+                detail: csv.Message, extensions: new Dictionary<string, object?> { ["errors"] = csv.Errors }),
             RuleException => Results.Problem(statusCode: 400, title: "Проверьте данные", detail: error.Message),
             BadHttpRequestException bad => Results.Problem(statusCode: bad.StatusCode, title: "Некорректный запрос"),
-            DbUpdateConcurrencyException => Results.Problem(statusCode: 409, title: "Заказ изменился",
+            OrderConflictException or DbUpdateConcurrencyException => Results.Problem(statusCode: 409, title: "Заказ изменился",
                 detail: "Обновите список, откройте заказ и повторите действие."),
             DbUpdateException => Results.Problem(statusCode: 500, title: "Ошибка сохранения данных"),
             _ => Results.Problem(statusCode: 500, title: "Внутренняя ошибка мастерской")
