@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="FurnitureWorkshop.Desktop/FurnitureWorkshop.Desktop.csproj" />
+  <Project Path="FurnitureWorkshop.Api/FurnitureWorkshop.Api.csproj" />
+  <Project Path="FurnitureWorkshop.Core/FurnitureWorkshop.Core.csproj" />
+  <Project Path="FurnitureWorkshop.Data/FurnitureWorkshop.Data.csproj" />
+  <Project Path="FurnitureWorkshop.Tests/FurnitureWorkshop.Tests.csproj" />
+  <Project Path="FurnitureWorkshop.UiTests/FurnitureWorkshop.UiTests.csproj" />
+</Solution>

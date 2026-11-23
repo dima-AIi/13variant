@@ -1,0 +1,139 @@
+<Window x:Class="FurnitureWorkshop.Desktop.WorkspaceWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Мебельная мастерская" Width="1120" Height="690" MinWidth="820" MinHeight="520"
+        WindowStartupLocation="CenterScreen" AutomationProperties.AutomationId="WorkspaceWindow">
+  <DockPanel LastChildFill="True">
+    <Border DockPanel.Dock="Top" Background="#204537" Padding="24,15">
+      <TextBlock Text="Мебельная мастерская" Foreground="White" FontFamily="Georgia" FontSize="27"/>
+    </Border>
+    <StatusBar DockPanel.Dock="Bottom" Background="#E8EDE6" Padding="11,6">
+      <StatusBar.ItemsPanel><ItemsPanelTemplate><DockPanel LastChildFill="True"/></ItemsPanelTemplate></StatusBar.ItemsPanel>
+      <StatusBarItem DockPanel.Dock="Right">
+        <Button Content="Выйти" Command="{Binding Logout}" AutomationProperties.AutomationId="LogoutButton"/>
+      </StatusBarItem>
+      <StatusBarItem DockPanel.Dock="Left">
+        <TextBlock Text="{Binding SessionCaption}" FontWeight="SemiBold" Margin="4,0,9,0"
+                   AutomationProperties.AutomationId="SessionCaption"/>
+      </StatusBarItem>
+      <StatusBarItem>
+        <TextBlock Text="{Binding Message}" TextWrapping="Wrap" Foreground="{StaticResource Accent}"
+                   AutomationProperties.AutomationId="WorkspaceMessage"/>
+      </StatusBarItem>
+    </StatusBar>
+    <TabControl Background="{StaticResource Background}" SelectedIndex="{Binding Tab}" Margin="19,14" Padding="14">
+      <TabItem Header="Заказы" AutomationProperties.AutomationId="OrdersTab">
+        <DockPanel Margin="0,8,0,0">
+          <TextBlock DockPanel.Dock="Top" Text="{Binding OrderHeading}" FontFamily="Georgia" FontSize="24" Margin="0,0,0,12"/>
+          <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <TextBox Width="234" Margin="0,0,8,4" ToolTip="Номер, изделие, адрес, заказчик или телефон"
+                     AutomationProperties.Name="Поиск по заказам" Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}">
+              <TextBox.InputBindings><KeyBinding Key="Enter" Command="{Binding RefreshOrders}"/></TextBox.InputBindings>
+            </TextBox>
+            <ComboBox Width="155" Margin="0,0,8,4" AutomationProperties.Name="Фильтр по статусу"
+                      ItemsSource="{Binding Filters}" SelectedItem="{Binding SelectedFilter}" DisplayMemberPath="Name"/>
+            <Button Content="Найти / обновить" Command="{Binding RefreshOrders}" Margin="0,0,8,4"/>
+            <Button Content="Новый заказ" Command="{Binding NewOrder}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,4"
+                    Visibility="{Binding IsStaff, Converter={StaticResource VisibleWhen}}" AutomationProperties.AutomationId="NewOrderButton"/>
+          </WrapPanel>
+          <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <Button Content="Карточка" Command="{Binding Details}" Margin="0,0,8,4"/>
+            <Button Content="Редактировать" Command="{Binding EditOrder}" Margin="0,0,8,4"
+                    Visibility="{Binding IsStaff, Converter={StaticResource VisibleWhen}}"/>
+            <Button Content="Сменить статус" Command="{Binding Transition}" Margin="0,0,8,4"/>
+            <StackPanel Orientation="Horizontal" Margin="8,0,0,4"
+                        Visibility="{Binding IsStaff, Converter={StaticResource VisibleWhen}}">
+              <TextBlock Text="Выгрузить" VerticalAlignment="Center" Margin="0,0,8,0"/>
+              <Button Content="CSV" Command="{Binding Export}" CommandParameter="csv" Margin="0,0,4,0"/>
+              <Button Content="JSON" Command="{Binding Export}" CommandParameter="json" Margin="0,0,4,0"/>
+              <Button Content="XML" Command="{Binding Export}" CommandParameter="xml"/>
+            </StackPanel>
+          </WrapPanel>
+          <TextBlock DockPanel.Dock="Bottom" Text="{Binding OrderCount}" Foreground="{StaticResource Muted}" Margin="0,10,0,0"
+                     AutomationProperties.AutomationId="OrderCount"/>
+          <Grid>
+            <DataGrid ItemsSource="{Binding Orders}" SelectedItem="{Binding SelectedOrder}"
+                      AutomationProperties.AutomationId="OrdersGrid">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="№" Binding="{Binding Order.Id}" Width="48"/>
+                <DataGridTextColumn Header="Изделие" Binding="{Binding Order.Title}" Width="2*" MinWidth="132"/>
+                <DataGridTextColumn Header="Заказчик" Binding="{Binding Order.Customer}" Width="1.3*" MinWidth="105"/>
+                <DataGridTextColumn Header="Статус" Binding="{Binding Status}" Width="126"/>
+                <DataGridTextColumn Header="Сборщик" Binding="{Binding Order.Assembler, TargetNullValue=—}" Width="120"/>
+                <DataGridTextColumn Header="Сумма" Binding="{Binding Amount}" Width="115"/>
+                <DataGridTextColumn Header="Доставка" Binding="{Binding Delivery}" Width="100"/>
+              </DataGrid.Columns>
+            </DataGrid>
+            <TextBlock Text="{Binding EmptyOrders}" IsHitTestVisible="False" Foreground="{StaticResource Muted}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap"/>
+          </Grid>
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="Заказчики" AutomationProperties.AutomationId="CustomersTab"
+               Visibility="{Binding IsStaff, Converter={StaticResource VisibleWhen}}">
+        <DockPanel Margin="0,8,0,0">
+          <TextBlock DockPanel.Dock="Top" Text="Справочник заказчиков" FontFamily="Georgia" FontSize="24" Margin="0,0,0,12"/>
+          <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <Button Content="Добавить" Command="{Binding NewCustomer}" Style="{StaticResource PrimaryButton}" Margin="0,0,8,4"/>
+            <Button Content="Редактировать" Command="{Binding EditCustomer}" Margin="0,0,8,4"/>
+            <Button Content="Импорт CSV" Command="{Binding Import}" Margin="0,0,8,4"/>
+            <Button Content="Обновить" Command="{Binding RefreshCustomers}" Margin="0,0,8,4"/>
+          </WrapPanel>
+          <TextBlock DockPanel.Dock="Bottom" Text="CSV в UTF-8. Заголовок Name,Phone,Email. Поддерживаются запятая и точка с запятой."
+                     Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,10,0,0"/>
+          <DataGrid ItemsSource="{Binding Customers}" SelectedItem="{Binding SelectedCustomer}">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="№" Binding="{Binding Id}" Width="60"/>
+              <DataGridTextColumn Header="Имя" Binding="{Binding Name}" Width="1.5*"/>
+              <DataGridTextColumn Header="Телефон" Binding="{Binding Phone}" Width="*"/>
+              <DataGridTextColumn Header="Эл. почта" Binding="{Binding Email}" Width="1.5*"/>
+            </DataGrid.Columns>
+          </DataGrid>
+        </DockPanel>
+      </TabItem>
+      <TabItem Header="Статистика" AutomationProperties.AutomationId="StatisticsTab">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="0,8,0,0">
+            <DockPanel Margin="0,0,0,14">
+              <Button DockPanel.Dock="Right" Content="Обновить" Command="{Binding RefreshStatistics}"/>
+              <TextBlock Text="Статистика заказов" FontFamily="Georgia" FontSize="24" VerticalAlignment="Center"/>
+            </DockPanel>
+            <WrapPanel Margin="0,0,0,12">
+              <TextBlock Margin="0,0,23,7" Text="{Binding Statistics.Total, StringFormat='Всего {0}'}"/>
+              <TextBlock Margin="0,0,23,7" Text="{Binding Statistics.Open, StringFormat='В работе {0}'}"/>
+              <TextBlock Margin="0,0,23,7" Text="{Binding Statistics.Installed, StringFormat='Установлено {0}'}"/>
+              <TextBlock Margin="0,0,23,7" Text="{Binding Statistics.Cancelled, StringFormat='Отменено {0}'}"/>
+            </WrapPanel>
+            <WrapPanel Margin="0,0,0,14">
+              <TextBlock Margin="0,0,23,7" Text="{Binding Statistics.TotalAmount, StringFormat='Сумма всех заказов {0:N2} ₽'}"/>
+              <TextBlock Margin="0,0,23,7" Text="{Binding Statistics.InstalledAmount, StringFormat='Сумма установленных {0:N2} ₽'}"/>
+              <TextBlock Margin="0,0,23,7" Text="{Binding AverageDays, StringFormat='Средний срок до установки {0}'}"/>
+            </WrapPanel>
+            <DataGrid ItemsSource="{Binding Statuses}" MaxWidth="560" HorizontalAlignment="Left" Width="435">
+              <DataGrid.Columns>
+                <DataGridTextColumn Header="Статус" Binding="{Binding Name}" Width="2*"/>
+                <DataGridTextColumn Header="Заказы" Binding="{Binding Count}" Width="*"/>
+              </DataGrid.Columns>
+            </DataGrid>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+      <TabItem Header="Пользователи" AutomationProperties.AutomationId="UsersTab"
+               Visibility="{Binding IsAdmin, Converter={StaticResource VisibleWhen}}">
+        <DockPanel Margin="0,8,0,0">
+          <DockPanel DockPanel.Dock="Top" Margin="0,0,0,14">
+            <Button DockPanel.Dock="Right" Content="Обновить" Command="{Binding RefreshUsers}"/>
+            <TextBlock Text="Пользователи мастерской" FontFamily="Georgia" FontSize="24" VerticalAlignment="Center"/>
+          </DockPanel>
+          <DataGrid ItemsSource="{Binding Users}">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Имя" Binding="{Binding User.DisplayName}" Width="*"/>
+              <DataGridTextColumn Header="Логин" Binding="{Binding User.Login}" Width="*"/>
+              <DataGridTextColumn Header="Роль" Binding="{Binding RoleName}" Width="*"/>
+            </DataGrid.Columns>
+          </DataGrid>
+        </DockPanel>
+      </TabItem>
+    </TabControl>
+  </DockPanel>
+</Window>

@@ -1,0 +1,11 @@
+[
+  {
+    "Name": "Мебельная мастерская",
+    "Projects": [
+      {
+        "Path": "FurnitureWorkshop.Desktop\\FurnitureWorkshop.Desktop.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

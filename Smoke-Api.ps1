@@ -1,0 +1,179 @@
+#requires -Version 7.0
+[CmdletBinding()]
+param()
+
+$ErrorActionPreference = 'Stop'
+$api = Join-Path $PSScriptRoot 'FurnitureWorkshop.Api/bin/Release/net10.0/FurnitureWorkshop.Api.dll'
+if (-not (Test-Path -LiteralPath $api -PathType Leaf)) {
+    throw 'Сначала соберите решение в конфигурации Release.'
+}
+
+$temporaryRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
+$scratch = Join-Path $temporaryRoot ('FurnitureWorkshop.Smoke.' + [Guid]::NewGuid().ToString('N'))
+[IO.Directory]::CreateDirectory($scratch) | Out-Null
+$database = Join-Path $scratch 'smoke.db'
+$listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
+$listener.Start()
+$port = $listener.LocalEndpoint.Port
+$listener.Stop()
+$baseUrl = "http://127.0.0.1:$port"
+$script:checks = 0
+
+function Confirm-Check([bool]$Condition, [string]$Description) {
+    if (-not $Condition) { throw "Не пройдена проверка: $Description" }
+    $script:checks++
+    Write-Host ('  {0,2}  {1}' -f $script:checks, $Description)
+}
+
+function Send-Request([string]$Method, [string]$Path, [int]$Expected,
+    [string]$Token = '', $Body = $null, [switch]$Csv) {
+    $parameters = @{ Uri = "$baseUrl$Path"; Method = $Method; SkipHttpErrorCheck = $true; NoProxy = $true; TimeoutSec = 6 }
+    if ($Token) { $parameters.Headers = @{ Authorization = "Bearer $Token" } }
+    if ($null -ne $Body) {
+        $parameters.ContentType = if ($Csv) { 'text/csv; charset=utf-8' } else { 'application/json; charset=utf-8' }
+        $parameters.Body = if ($Csv) { $Body } else { $Body | ConvertTo-Json -Depth 6 -Compress }
+    }
+    $response = Invoke-WebRequest @parameters
+    Confirm-Check ($response.StatusCode -eq $Expected) "$Method $Path → $Expected (фактически $($response.StatusCode))"
+    return $response
+}
+
+function Read-Json($Response) {
+    ConvertFrom-Json -AsHashtable -NoEnumerate $Response.Content
+}
+
+function Get-DemoPassword([string]$Account) {
+    $variable = "WORKSHOP_DEMO_${Account}_PASSWORD"
+    $value = [Environment]::GetEnvironmentVariable($variable)
+    if ([string]::IsNullOrWhiteSpace($value)) { throw "Set $variable before running the API smoke test." }
+    return $value
+}
+
+function Open-Session([string]$Login, [string]$Password, [string]$Role) {
+    $session = Read-Json (Send-Request POST /api/auth/login 200 -Body @{login=$Login; password=$Password})
+    Confirm-Check ($session.user.role -eq $Role -and $session.user.login -eq $Login) "роль $Login = $Role"
+    return $session.token
+}
+
+function Set-Stage([int]$Order, [string]$Token, [string]$Status, [int]$Version, [int]$Expected, [string]$Reason = '') {
+    Send-Request POST "/api/orders/$Order/transition" $Expected $Token @{
+        status=$Status; version=$Version; reason=$Reason
+    } | Out-Null
+}
+
+$process = $null
+try {
+    $process = Start-Process dotnet -PassThru -WindowStyle Hidden -ArgumentList @(
+        ('"' + $api + '"'), '--urls', $baseUrl, ('"--Workshop:Database=' + $database + '"')
+    ) -RedirectStandardOutput (Join-Path $scratch 'stdout.txt') -RedirectStandardError (Join-Path $scratch 'stderr.txt')
+
+    $ready = $false
+    $timeout = [Diagnostics.Stopwatch]::StartNew()
+    while (-not $ready -and -not $process.HasExited -and $timeout.Elapsed.TotalSeconds -lt 25) {
+        try { $ready = (Invoke-WebRequest "$baseUrl/health" -NoProxy -TimeoutSec 2).StatusCode -eq 200 }
+        catch { Start-Sleep -Milliseconds 220 }
+    }
+    Confirm-Check ($ready -and (Test-Path -LiteralPath $database -PathType Leaf)) 'живой API и новая SQLite БД'
+    Send-Request GET /api/orders 401 | Out-Null
+    Send-Request POST /api/auth/login 401 -Body @{login='admin'; password='invalid'} | Out-Null
+    $admin = Open-Session admin (Get-DemoPassword ADMIN) Admin
+    $manager = Open-Session manager (Get-DemoPassword MANAGER) Manager
+    $one = Open-Session ivan (Get-DemoPassword IVAN) Assembler
+    $two = Open-Session pavel (Get-DemoPassword PAVEL) Assembler
+
+    $users = Read-Json (Send-Request GET /api/users 200 $admin)
+    Confirm-Check ($users.Count -eq 4) 'четыре демо-пользователя'
+    Send-Request GET /api/users 403 $manager | Out-Null
+    Send-Request GET /api/customers 403 $one | Out-Null
+    Send-Request GET /api/orders/export/csv 403 $two | Out-Null
+    $assemblers = Read-Json (Send-Request GET /api/users/assemblers 200 $manager)
+    $assembler1 = ($assemblers | Where-Object login -eq 'ivan').id
+    $assembler2 = ($assemblers | Where-Object login -eq 'pavel').id
+
+    $empty = Read-Json (Send-Request GET /api/orders/statistics 200 $manager)
+    Confirm-Check ($empty.total -eq 0 -and $null -eq $empty.averageDays) 'пустая БД и средний срок без деления на ноль'
+    $import = Read-Json (Send-Request POST /api/customers/import 200 $manager -Csv -Body (
+        "Name;Phone;Email" + [Environment]::NewLine + '"Орлова, Анна";+79990001234;anna@example.com'))
+    Confirm-Check ($import.imported -eq 1) 'импорт заказчика с кавычками и кириллицей'
+    Send-Request POST /api/customers/import 400 $manager -Csv -Body "Name;Phone;Email`nКорректная;100;`nОшибка;;" | Out-Null
+    Send-Request POST /api/customers/import 403 $one -Csv -Body 'Name,Phone,Email' | Out-Null
+    $customers = Read-Json (Send-Request GET /api/customers 200 $manager)
+    Confirm-Check ($customers.Count -eq 1 -and $customers[0].name -eq 'Орлова, Анна') 'ошибочный импорт не сохраняет часть строк'
+
+    $body = @{customerId=$customers[0].id; title='Кухня из дуба'; address='Ул. Лесная, 14'}
+    $first = (Read-Json (Send-Request POST /api/orders 201 $manager -Body $body)).id
+    $body.title = 'Гардероб'
+    $body.assemblerId = $assembler2
+    $second = (Read-Json (Send-Request POST /api/orders 201 $admin -Body $body)).id
+    Send-Request POST /api/orders 403 $one -Body $body | Out-Null
+
+    Set-Stage $first $manager Delivery 1 400
+    Set-Stage $first $manager Design 1 204
+    Set-Stage $first $manager Manufacturing 2 400
+    $body.title = 'Кухня из дуба'
+    $body.assemblerId = $assembler1
+    $body.version = 2
+    Send-Request PUT "/api/orders/$first" 204 $manager -Body $body | Out-Null
+    Set-Stage $first $manager Manufacturing 2 409
+
+    $firstList = Read-Json (Send-Request GET /api/orders 200 $one)
+    $secondList = Read-Json (Send-Request GET /api/orders 200 $two)
+    Confirm-Check ($firstList.Count -eq 1 -and $firstList[0].id -eq $first) 'сборщик 1 видит свой заказ'
+    Confirm-Check ($secondList.Count -eq 1 -and $secondList[0].id -eq $second) 'сборщик 2 видит свой заказ'
+    Send-Request GET "/api/orders/$second" 404 $one | Out-Null
+    Send-Request PUT "/api/orders/$first" 403 $one -Body $body | Out-Null
+    Set-Stage $first $two Manufacturing 3 404
+
+    Set-Stage $first $one Manufacturing 3 204
+    Set-Stage $first $one Delivery 4 204
+    Set-Stage $first $one Installed 5 400
+    $body.version = 5
+    $body.amount = 54000.50
+    Send-Request PUT "/api/orders/$first" 204 $manager -Body $body | Out-Null
+    Set-Stage $first $one Installed 6 400
+    $body.version = 6
+    $body.deliveryDate = (Get-Date -Format 'yyyy-MM-dd')
+    Send-Request PUT "/api/orders/$first" 204 $manager -Body $body | Out-Null
+    Set-Stage $first $one Installed 7 204
+    Set-Stage $first $one Cancelled 8 400 'Закрытый заказ'
+    Set-Stage $second $two Cancelled 1 400 '  '
+    Set-Stage $second $two Cancelled 1 204 'Изменились размеры'
+    $cancelled = Read-Json (Send-Request GET "/api/orders/$second" 200 $manager)
+    Confirm-Check ($cancelled.cancellationReason -eq 'Изменились размеры') 'причина отмены сохранена'
+
+    $stats = Read-Json (Send-Request GET /api/orders/statistics 200 $manager)
+    Confirm-Check ($stats.total -eq 2 -and $stats.installed -eq 1 -and $stats.cancelled -eq 1 -and
+        $stats.installedAmount -eq 54000.5 -and $null -ne $stats.averageDays -and $stats.byStatus.Count -eq 6) 'статистика всей мастерской'
+    $ownStats = Read-Json (Send-Request GET /api/orders/statistics 200 $two)
+    Confirm-Check ($ownStats.total -eq 1 -and $ownStats.cancelled -eq 1) 'личная статистика сборщика'
+
+    $query = '?status=Installed&q=' + [Uri]::EscapeDataString('кухня')
+    $filter = Read-Json (Send-Request GET "/api/orders$query" 200 $manager)
+    Confirm-Check ($filter.Count -eq 1 -and $filter[0].id -eq $first) 'фильтр статуса и поиск без учёта регистра в кириллице'
+    $csv = Send-Request GET "/api/orders/export/csv$query" 200 $manager
+    Confirm-Check ($csv.Content -match 'Кухня' -and $csv.Content -notmatch 'Гардероб') 'содержимое отфильтрованного CSV'
+    $json = Read-Json (Send-Request GET "/api/orders/export/json$query" 200 $manager)
+    Confirm-Check ($json.Count -eq 1 -and $json[0].id -eq $first) 'содержимое отфильтрованного JSON'
+    [xml]$xml = (Send-Request GET "/api/orders/export/xml$query" 200 $manager).Content
+    Confirm-Check (@($xml.Orders.Order).Count -eq 1 -and $xml.Orders.Order.Id -eq $first) 'содержимое отфильтрованного XML'
+    Send-Request POST /api/auth/logout 204 $one | Out-Null
+    Send-Request GET /api/auth/me 401 $one | Out-Null
+
+    Write-Host "Выполнено проверок живого API: $script:checks"
+}
+catch {
+    $stderr = Join-Path $scratch 'stderr.txt'
+    if (Test-Path -LiteralPath $stderr) { Get-Content -LiteralPath $stderr }
+    throw
+}
+finally {
+    if ($null -ne $process -and -not $process.HasExited) {
+        Stop-Process -Id $process.Id
+        $process.WaitForExit()
+    }
+    $resolved = (Resolve-Path -LiteralPath $scratch).Path
+    if ([IO.Path]::GetDirectoryName($resolved) -eq $temporaryRoot.TrimEnd('\', '/') -and
+        [IO.Path]::GetFileName($resolved).StartsWith('FurnitureWorkshop.Smoke.')) {
+        Remove-Item -LiteralPath $resolved -Recurse
+    }
+}
